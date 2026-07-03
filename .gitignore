@@ -18,3 +18,5 @@ yarn-error.log
 /.vscode
 /claude-skills
 /public/uploads
+
+/docs/php-8.3.32-src.zip
