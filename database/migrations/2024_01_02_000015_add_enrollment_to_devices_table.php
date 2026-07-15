@@ -1,0 +1,25 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('devices', function (Blueprint $table) {
+            $table->string('enrollment_code')->nullable()->unique()->after('uninstall_code');
+            $table->timestamp('enrollment_expires_at')->nullable()->after('enrollment_code');
+            $table->timestamp('last_seen_at')->nullable()->after('enrollment_expires_at');
+            $table->string('agent_version')->nullable()->after('last_seen_at');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('devices', function (Blueprint $table) {
+            $table->dropColumn(['enrollment_code', 'enrollment_expires_at', 'last_seen_at', 'agent_version']);
+        });
+    }
+};

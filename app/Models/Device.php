@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Sanctum\HasApiTokens;
 
 class Device extends Model
 {
-    use HasFactory;
+    use HasApiTokens, HasFactory;
 
     public const STATUS_UNASSIGNED = 'unassigned';
     public const STATUS_ACTIVE = 'active';
@@ -34,6 +35,10 @@ class Device extends Model
         'hmac_secret',
         'unlock_counter',
         'uninstall_code',
+        'enrollment_code',
+        'enrollment_expires_at',
+        'last_seen_at',
+        'agent_version',
         'activated_at',
         'closed_at',
     ];
@@ -42,6 +47,8 @@ class Device extends Model
         'price' => 'decimal:2',
         'balance' => 'decimal:2',
         'next_due_at' => 'date',
+        'enrollment_expires_at' => 'datetime',
+        'last_seen_at' => 'datetime',
         'activated_at' => 'datetime',
         'closed_at' => 'datetime',
         'bios_password' => 'encrypted',
@@ -55,6 +62,7 @@ class Device extends Model
         'recovery_key',
         'hmac_secret',
         'uninstall_code',
+        'enrollment_code',
     ];
 
     public function client(): BelongsTo

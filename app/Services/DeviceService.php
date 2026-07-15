@@ -5,9 +5,32 @@ namespace App\Services;
 use App\Models\Device;
 use App\Models\Plan;
 use App\Models\UnlockCode;
+use Illuminate\Support\Str;
 
 class DeviceService
 {
+    private const ENROLLMENT_VALID_HOURS = 24;
+
+    public function issueEnrollmentCode(Device $device): string
+    {
+        do {
+            $code = strtoupper(Str::random(10));
+        } while (Device::where('enrollment_code', $code)->exists());
+
+        $device->update([
+            'enrollment_code' => $code,
+            'enrollment_expires_at' => now()->addHours(self::ENROLLMENT_VALID_HOURS),
+        ]);
+
+        $this->auditLogger->record(
+            'device.enroll_code',
+            "Issued an enrollment code for {$device->account_number}",
+            $device,
+        );
+
+        return $code;
+    }
+
     public function __construct(
         private AuditLogger $auditLogger,
         private UnlockCodeService $unlockCodes,
