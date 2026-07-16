@@ -24,6 +24,8 @@ class Device extends Model
         'serial',
         'name',
         'model',
+        'manufacturer',
+        'hostname',
         'price',
         'client_id',
         'plan_id',

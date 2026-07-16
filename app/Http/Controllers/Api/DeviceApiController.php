@@ -20,6 +20,11 @@ class DeviceApiController extends Controller
         $data = $request->validate([
             'code' => 'required|string',
             'agent_version' => 'nullable|string',
+            // Reported by the client from its own firmware (SMBIOS).
+            'serial' => 'nullable|string|max:120',
+            'model' => 'nullable|string|max:255',
+            'manufacturer' => 'nullable|string|max:255',
+            'hostname' => 'nullable|string|max:255',
         ]);
 
         $device = Device::where('enrollment_code', $data['code'])
@@ -30,7 +35,24 @@ class DeviceApiController extends Controller
             return response()->json(['message' => 'Invalid or expired enrollment code.'], 422);
         }
 
-        $device->forceFill([
+        // The machine knows what it is better than whoever typed the record, so its
+        // firmware wins. Refuse only when the serial already belongs to a different
+        // device, which would otherwise break the unique index.
+        $reported = $this->reportedHardware($data);
+
+        if (isset($reported['serial'])) {
+            $clash = Device::where('serial', $reported['serial'])
+                ->whereKeyNot($device->getKey())
+                ->exists();
+
+            if ($clash) {
+                return response()->json([
+                    'message' => "Serial {$reported['serial']} is already registered to another device.",
+                ], 422);
+            }
+        }
+
+        $device->forceFill($reported + [
             'enrollment_code' => null,
             'enrollment_expires_at' => null,
             'last_seen_at' => now(),
@@ -45,14 +67,34 @@ class DeviceApiController extends Controller
             $device,
         );
 
+        $device->refresh();
+
         return response()->json([
             'token' => $token,
             'account_number' => $device->account_number,
             'hmac_secret' => $device->hmac_secret,
             'serial' => $device->serial,
             'model' => $device->model,
-            'name' => $device->name,
+            'manufacturer' => $device->manufacturer,
+            // The friendly label an operator gave the unit, falling back to the
+            // machine's own hostname so the lock screen always has something to show.
+            'name' => $device->name ?: $device->hostname,
         ]);
+    }
+
+    // Firmware fields the client reported, keeping only the ones it actually knows.
+    private function reportedHardware(array $data): array
+    {
+        $reported = [];
+
+        foreach (['serial', 'model', 'manufacturer', 'hostname'] as $field) {
+            $value = trim((string) ($data[$field] ?? ''));
+            if ($value !== '') {
+                $reported[$field] = $value;
+            }
+        }
+
+        return $reported;
     }
 
     public function heartbeat(Request $request): JsonResponse

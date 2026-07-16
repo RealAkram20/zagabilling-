@@ -42,6 +42,7 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::post('/devices/{device}/unlock', [DeviceController::class, 'unlock'])->middleware('can:manage-devices')->name('devices.unlock');
     Route::post('/devices/{device}/collect', [DeviceController::class, 'collect'])->middleware('can:issue-codes')->name('devices.collect');
     Route::get('/devices/{device}/payment-status', [DeviceController::class, 'paymentStatus'])->middleware('can:issue-codes')->name('devices.paymentStatus');
+    Route::post('/devices/{device}/enroll-code', [DeviceController::class, 'issueEnrollCode'])->middleware('can:manage-devices')->name('devices.enrollCode');
     Route::post('/devices/{device}/vault', [DeviceController::class, 'revealVault'])->middleware('can:reveal-vault')->name('devices.vault');
     Route::post('/devices/{device}/provisioning', [DeviceController::class, 'revealProvisioning'])->middleware('can:reveal-provisioning')->name('devices.provisioning');
     Route::post('/devices/{device}/uninstall-auth', [DeviceController::class, 'uninstallAuthorization'])->middleware('can:manage-devices')->name('devices.uninstallAuth');

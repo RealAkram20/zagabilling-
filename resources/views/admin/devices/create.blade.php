@@ -33,16 +33,17 @@
             <div>
                 <label class="block text-[12.5px] font-medium text-[#4A4F58] mb-1.5">Selling price <span class="text-[#C2453D]">*</span></label>
                 <div class="relative">
-                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-[#9AA0AA]">$</span>
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#9AA0AA]">{{ trim(currency_prefix()) }}</span>
                     <input name="price" type="number" step="0.01" min="0" value="{{ old('price') }}" required placeholder="0.00"
-                           class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg pl-7 pr-3 text-[13px] tnum outline-none focus:border-brand">
+                           class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg pl-12 pr-3 text-[13px] tnum outline-none focus:border-brand">
                 </div>
                 <p class="text-[11px] text-[#9AA0AA] mt-1">The price this unit is sold for. Deposit and installments are derived from it at enrollment.</p>
             </div>
             <div>
-                <label class="block text-[12.5px] font-medium text-[#4A4F58] mb-1.5">Serial number <span class="text-[#C2453D]">*</span></label>
-                <input name="serial" value="{{ old('serial') }}" required
+                <label class="block text-[12.5px] font-medium text-[#4A4F58] mb-1.5">Serial number</label>
+                <input name="serial" value="{{ old('serial') }}" placeholder="Read from the device at enrollment"
                        class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] tnum outline-none focus:border-brand">
+                <p class="text-[11px] text-[#9AA0AA] mt-1.5">Leave blank. The device reports its real serial, model and manufacturer when it enrolls.</p>
             </div>
             <div>
                 <label class="block text-[12.5px] font-medium text-[#4A4F58] mb-1.5">Account number</label>

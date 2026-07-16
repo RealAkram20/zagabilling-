@@ -106,7 +106,9 @@ class DeviceController extends Controller
     {
         $data = $request->validate([
             'account_number' => ['nullable', 'string', 'max:40', 'unique:devices,account_number'],
-            'serial' => ['required', 'string', 'max:120', 'unique:devices,serial'],
+            // Optional: the device reports its real serial from firmware when it
+            // enrolls, so an operator no longer has to read it off a sticker.
+            'serial' => ['nullable', 'string', 'max:120', 'unique:devices,serial'],
             'name' => ['nullable', 'string', 'max:255'],
             'model' => ['nullable', 'string', 'max:255'],
             'price' => ['required', 'numeric', 'min:0'],
@@ -117,9 +119,15 @@ class DeviceController extends Controller
 
         $device = $this->deviceService->register($data);
 
+        // Issue the code straight away: registering a device is always followed by
+        // provisioning the machine, and the code only becomes valid once the device
+        // row exists, so this is the earliest it can honestly be shown.
+        $code = $this->deviceService->issueEnrollmentCode($device);
+
         return redirect()
             ->route('admin.devices.show', $device)
-            ->with('status', 'Device registered. Enroll it to a client when ready.');
+            ->with('status', 'Device registered. Enter the enrollment code on the machine to finish setup.')
+            ->with('enrollment_code', $code);
     }
 
     public function show(Device $device, ClientRepository $clients, PlanRepository $plans): View
@@ -217,6 +225,19 @@ class DeviceController extends Controller
     public function revealProvisioning(Device $device): JsonResponse
     {
         return response()->json($this->deviceService->revealProvisioning($device));
+    }
+
+    // Issues the one-time code a device redeems to provision itself over the API.
+    // Mirrors the device:enroll-code command so onboarding never needs a terminal.
+    public function issueEnrollCode(Device $device): JsonResponse
+    {
+        $code = $this->deviceService->issueEnrollmentCode($device);
+
+        return response()->json([
+            'code' => $code,
+            'expires_at' => $device->fresh()->enrollment_expires_at?->toIso8601String(),
+            'expires_human' => $device->fresh()->enrollment_expires_at?->diffForHumans(),
+        ]);
     }
 
     public function uninstallAuthorization(Device $device): RedirectResponse

@@ -41,7 +41,8 @@ class DeviceService
     {
         $device = Device::create([
             'account_number' => ! empty($data['account_number']) ? $data['account_number'] : $this->generateAccountNumber(),
-            'serial' => $data['serial'],
+            // Left null when unknown; the device reports its firmware serial at enrollment.
+            'serial' => ! empty($data['serial']) ? $data['serial'] : null,
             'name' => $data['name'] ?? null,
             'model' => $data['model'] ?? null,
             'price' => $data['price'] ?? 0,

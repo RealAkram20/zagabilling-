@@ -52,8 +52,10 @@
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3 mt-4">
                 <div><div class="text-[11px] text-[#9AA0AA]">Account</div><div class="text-[13px] font-medium mt-0.5 tnum text-brand">{{ $device->account_number }}</div></div>
                 <div><div class="text-[11px] text-[#9AA0AA]">Model</div><div class="text-[13px] font-medium mt-0.5">{{ $device->model ?? '—' }}</div></div>
-                <div><div class="text-[11px] text-[#9AA0AA]">Serial</div><div class="text-[13px] font-medium mt-0.5 tnum">{{ $device->serial }}</div></div>
-                <div><div class="text-[11px] text-[#9AA0AA]">Price</div><div class="text-[13px] font-medium mt-0.5 tnum">${{ number_format((float) $device->price, 2) }}</div></div>
+                <div><div class="text-[11px] text-[#9AA0AA]">Serial</div><div class="text-[13px] font-medium mt-0.5 tnum">{{ $device->serial ?? '— awaiting enrollment' }}</div></div>
+                <div><div class="text-[11px] text-[#9AA0AA]">Manufacturer</div><div class="text-[13px] font-medium mt-0.5">{{ $device->manufacturer ?? '—' }}</div></div>
+                <div><div class="text-[11px] text-[#9AA0AA]">Hostname</div><div class="text-[13px] font-medium mt-0.5">{{ $device->hostname ?? '—' }}</div></div>
+                <div><div class="text-[11px] text-[#9AA0AA]">Price</div><div class="text-[13px] font-medium mt-0.5 tnum">{{ money($device->price) }}</div></div>
                 <div><div class="text-[11px] text-[#9AA0AA]">Client</div><div class="text-[13px] font-medium mt-0.5">{{ $device->client->name ?? 'Unassigned' }}</div></div>
                 <div><div class="text-[11px] text-[#9AA0AA]">Plan</div><div class="text-[13px] font-medium mt-0.5">{{ $device->plan->name ?? '—' }}</div></div>
                 <div><div class="text-[11px] text-[#9AA0AA]">Enrolled</div><div class="text-[13px] font-medium mt-0.5 tnum">{{ $device->activated_at?->format('M j, Y') ?? '—' }}</div></div>
@@ -64,7 +66,7 @@
                 <a href="{{ route('admin.devices.edit', $device) }}" class="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[#E4E6EB] bg-white text-[12.5px] font-medium text-[#4A4F58] hover:bg-[#FBFBFC]">
                     <x-icon name="pencil" class="w-3.5 h-3.5" /> Edit
                 </a>
-                <form method="POST" action="{{ route('admin.devices.destroy', $device) }}" onsubmit="return confirm('Delete {{ $device->account_number }}? This removes its payments and unlock codes.');">
+                <form method="POST" action="{{ route('admin.devices.destroy', $device) }}" data-confirm="Delete {{ $device->account_number }}? This removes its payments and unlock codes.">
                     @csrf
                     @method('DELETE')
                     <button class="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[#E7C9C4] bg-white text-[12.5px] font-medium text-[#B23A30] hover:bg-[#FDF6F5]"><x-icon name="trash" class="w-3.5 h-3.5" /> Delete</button>
@@ -88,25 +90,25 @@
             <div class="bg-white border border-[#E9EBEF] rounded-[14px] p-5 shadow-[0_1px_2px_rgba(16,20,28,.03)]">
                 <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
                     <div class="text-[14.5px] font-semibold">Installment plan</div>
-                    <div class="text-[13px] text-[#787E88]">{{ $device->plan->name }} · <span class="tnum">${{ number_format($per, 0) }}</span>/{{ $device->plan->cadenceLabel() }}</div>
+                    <div class="text-[13px] text-[#787E88]">{{ $device->plan->name }} · <span class="tnum">{{ money($per, 0) }}</span>/{{ $device->plan->cadenceLabel() }}</div>
                 </div>
                 <div class="grid grid-cols-3 gap-3 mb-4">
                     <div class="border border-[#EEF0F3] rounded-xl p-3">
                         <div class="text-[11px] text-[#9AA0AA]">Device price</div>
-                        <div class="tnum text-[16px] font-bold mt-0.5">${{ number_format((float) $device->price, 0) }}</div>
+                        <div class="tnum text-[16px] font-bold mt-0.5">{{ money($device->price, 0) }}</div>
                     </div>
                     <div class="border border-[#EEF0F3] rounded-xl p-3">
                         <div class="text-[11px] text-[#9AA0AA]">Deposit ({{ rtrim(rtrim(number_format((float) $device->plan->deposit_percentage, 2), '0'), '.') }}%)</div>
-                        <div class="tnum text-[16px] font-bold mt-0.5">${{ number_format($deposit, 0) }}</div>
+                        <div class="tnum text-[16px] font-bold mt-0.5">{{ money($deposit, 0) }}</div>
                     </div>
                     <div class="border border-[#EEF0F3] rounded-xl p-3">
                         <div class="text-[11px] text-[#9AA0AA]">Financed</div>
-                        <div class="tnum text-[16px] font-bold mt-0.5">${{ number_format($financed, 0) }}</div>
+                        <div class="tnum text-[16px] font-bold mt-0.5">{{ money($financed, 0) }}</div>
                     </div>
                 </div>
                 <div class="flex items-center justify-between text-[12px] mb-2">
                     <span class="text-[#565b64] font-medium">{{ $paid }} of {{ $total }} paid</span>
-                    <span class="text-[#787E88] tnum">${{ number_format((float) $device->balance, 0) }} remaining of ${{ number_format($financed, 0) }}</span>
+                    <span class="text-[#787E88] tnum">{{ money($device->balance, 0) }} remaining of {{ money($financed, 0) }}</span>
                 </div>
                 <x-progress-bar :paid="$paid" :total="$total" />
                 <div class="flex flex-wrap gap-1.5 mt-5">
@@ -133,7 +135,7 @@
                             <div class="grid grid-cols-[0.9fr_1fr_0.7fr_auto] gap-3 px-5 py-3 text-[13px] items-center border-b border-[#F4F5F7] last:border-0">
                                 <span class="tnum text-[#787E88]">{{ $payment->paid_at?->format('M j, Y') ?? $payment->created_at->format('M j, Y') }}</span>
                                 <span class="text-[#565b64]">{{ $payment->method_label ?? 'PesaPal' }}</span>
-                                <span class="tnum text-right font-semibold">${{ number_format((float) $payment->amount, 2) }}</span>
+                                <span class="tnum text-right font-semibold">{{ money($payment->amount) }}</span>
                                 <span class="text-right"><x-status-badge :status="$payment->status" /></span>
                             </div>
                         @empty
@@ -145,7 +147,7 @@
         @else
             <div class="bg-white border border-[#E9EBEF] rounded-[14px] p-5 shadow-[0_1px_2px_rgba(16,20,28,.03)]">
                 <div class="flex items-center gap-2 mb-1"><x-icon name="clients" class="w-[18px] h-[18px] text-brand" /><span class="text-[14.5px] font-semibold">Enroll to a client</span></div>
-                <p class="text-[12.5px] text-[#8A909A] mb-4">This device is in inventory at <span class="tnum font-medium">${{ number_format((float) $device->price, 2) }}</span>. Assign a client and installment plan to activate it.</p>
+                <p class="text-[12.5px] text-[#8A909A] mb-4">This device is in inventory at <span class="tnum font-medium">{{ money($device->price) }}</span>. Assign a client and installment plan to activate it.</p>
                 @can('manage-devices')
                     @php
                         $planTerms = $plans->mapWithKeys(fn ($p) => [$p->id => [
@@ -188,11 +190,11 @@
                         <div class="sm:col-span-2" x-show="plan" x-cloak>
                             <div class="rounded-xl border border-[#EEF0F3] p-4">
                                 <div class="grid grid-cols-3 gap-3 mb-3">
-                                    <div><div class="text-[11px] text-[#9AA0AA]">Deposit</div><div class="tnum text-[15px] font-bold mt-0.5" x-text="'$' + deposit.toLocaleString()"></div></div>
-                                    <div><div class="text-[11px] text-[#9AA0AA]">Financed</div><div class="tnum text-[15px] font-bold mt-0.5" x-text="'$' + financed.toLocaleString()"></div></div>
-                                    <div><div class="text-[11px] text-[#9AA0AA]">Per installment</div><div class="tnum text-[15px] font-bold mt-0.5 text-brand" x-text="'$' + per.toLocaleString()"></div></div>
+                                    <div><div class="text-[11px] text-[#9AA0AA]">Deposit</div><div class="tnum text-[15px] font-bold mt-0.5" x-text="zagaMoney(deposit, 0)"></div></div>
+                                    <div><div class="text-[11px] text-[#9AA0AA]">Financed</div><div class="tnum text-[15px] font-bold mt-0.5" x-text="zagaMoney(financed, 0)"></div></div>
+                                    <div><div class="text-[11px] text-[#9AA0AA]">Per installment</div><div class="tnum text-[15px] font-bold mt-0.5 text-brand" x-text="zagaMoney(per, 0)"></div></div>
                                 </div>
-                                <div class="text-[12px] text-[#787E88]" x-text="plan ? (plan.term + ' payments of $' + per.toLocaleString() + ' · ' + plan.cadence) : ''"></div>
+                                <div class="text-[12px] text-[#787E88]" x-text="plan ? (plan.term + ' payments of ' + zagaMoney(per, 0) + ' · ' + plan.cadence) : ''"></div>
                             </div>
                         </div>
                         <div>
@@ -257,10 +259,41 @@
             </div>
         </div>
 
+        @can('manage-devices')
+        <div class="bg-white border border-[#C7DDF2] rounded-[14px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden"
+             x-data="{ code:@js(session('enrollment_code') ?? ''), expires:@js(session('enrollment_code') ? 'in 24 hours' : ''), loading:false, copied:false,
+                async issue(){ this.loading=true;
+                    const r = await fetch('{{ route('admin.devices.enrollCode', $device) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}, credentials:'same-origin'});
+                    const d = await r.json(); this.code=d.code; this.expires=d.expires_human; this.loading=false; },
+                copy(){ navigator.clipboard.writeText(this.code); this.copied=true; setTimeout(() => { this.copied=false; }, 1500); } }">
+            <div class="flex items-center justify-between px-[18px] py-3.5 bg-[#EFF6FD] border-b border-[#DBE9F7]">
+                <div class="flex items-center gap-2 text-[13.5px] font-semibold text-[#1F5C99]"><x-icon name="shield" class="w-4 h-4" sw="1.9" /> Enrollment code</div>
+                <span class="text-[10px] font-semibold px-2 py-1 rounded-[5px]" style="color:#1F5C99;background:#E1EDFA;">ONE-TIME</span>
+            </div>
+            <div class="p-[18px] space-y-3">
+                <p class="text-[11.5px] text-[#8A909A]">For a device that can reach this portal. Run the Zaga app on the device, choose <span class="font-medium text-[#4A4F58]">Enroll device</span>, and enter the portal address and this code. It provisions itself over the network — no secret is typed by hand. Valid 24 hours, single use.</p>
+                <div x-show="code" x-cloak>
+                    <div class="text-[11px] text-[#9AA0AA] mb-1">Code</div>
+                    <div class="flex items-center gap-2">
+                        <div class="text-[18px] font-mono font-semibold tracking-[.08em] flex-1 break-all" x-text="code"></div>
+                        <button type="button" @click="copy()" class="w-8 h-8 rounded-lg border border-[#E4E6EB] bg-white flex items-center justify-center text-[#787E88] hover:bg-[#FBFBFC] flex-none">
+                            <x-icon name="copy" class="w-3.5 h-3.5" x-show="!copied" /><x-icon name="check" class="w-3.5 h-3.5 text-[#0F7B54]" x-show="copied" x-cloak />
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-[#9AA0AA] mt-1.5">Expires <span x-text="expires"></span>. Issuing a new code replaces this one.</p>
+                </div>
+                <button @click="issue()" :disabled="loading"
+                        class="w-full flex items-center justify-center gap-2 h-10 rounded-lg border border-[#E4E6EB] bg-white text-[12.5px] font-medium text-[#4A4F58] hover:bg-[#FBFBFC]">
+                    <x-icon name="shield" class="w-4 h-4" sw="1.9" /> <span x-text="loading ? 'Generating…' : (code ? 'Generate a new code' : 'Generate enrollment code')"></span>
+                </button>
+            </div>
+        </div>
+        @endcan
+
         @can('reveal-provisioning')
         <div class="bg-white border border-[#D8C4E7] rounded-[14px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden"
              x-data="{ revealed:false, loading:false, secret:'', account:'', copied:'',
-                async reveal(){ if (! confirm('Reveal the provisioning bundle? This exposes the device HMAC secret for burning into the offline client.')) return; this.loading=true;
+                async reveal(){ if (! await window.zagaConfirm('Reveal the provisioning bundle? This exposes the device HMAC secret for burning into the offline client.')) return; this.loading=true;
                     const r = await fetch('{{ route('admin.devices.provisioning', $device) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}, credentials:'same-origin'});
                     const d = await r.json(); this.account=d.account_number; this.secret=d.hmac_secret; this.revealed=true; this.loading=false; },
                 copy(text, which){ navigator.clipboard.writeText(text); this.copied=which; setTimeout(() => { this.copied=''; }, 1500); } }">
@@ -316,7 +349,7 @@
                         </form>
                     @endif
                     <form method="POST" action="{{ route('admin.devices.uninstallAuth', $device) }}"
-                          onsubmit="return confirm('Reveal the recorded uninstall code for this device?');">
+                          data-confirm="Reveal the recorded uninstall code for this device?">
                         @csrf
                         <button class="w-full h-10 rounded-lg border border-[#E7C9C4] bg-white text-[13px] font-medium text-[#B23A30] hover:bg-[#FDF6F5]">Uninstall authorization</button>
                     </form>
@@ -411,8 +444,8 @@
                             <button type="button" @click="periods = Math.min(maxPeriods, periods + 1)" class="w-11 h-full text-[18px] text-[#787E88] hover:bg-[#EFF1F4]">+</button>
                         </div>
                         <div class="flex-1 text-right">
-                            <div class="tnum text-[20px] font-bold" x-text="'$' + amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})"></div>
-                            <div class="text-[11px] text-[#9AA0AA]"><span x-text="periods"></span> × ${{ number_format($device->installmentAmount(), 2) }} / {{ $device->plan->periodLabel() }}</div>
+                            <div class="tnum text-[20px] font-bold" x-text="zagaMoney(amount)"></div>
+                            <div class="text-[11px] text-[#9AA0AA]"><span x-text="periods"></span> × {{ money($device->installmentAmount()) }} / {{ $device->plan->periodLabel() }}</div>
                         </div>
                     </div>
                     <p class="text-[11px] text-[#9AA0AA] mt-1.5">Unlocks the device for <span x-text="periods * {{ $device->plan->cadenceDays() }}"></span> days from the current due date.</p>
