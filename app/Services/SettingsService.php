@@ -72,12 +72,34 @@ class SettingsService
         Cache::forget('pesapal_token');
     }
 
+    public function currency(): string
+    {
+        return $this->settings->get('pesapal.currency', config('services.pesapal.currency', 'KES')) ?: 'KES';
+    }
+
+    public function currencyPrefix(): string
+    {
+        return self::currencyPrefixFor($this->currency());
+    }
+
+    public static function currencyPrefixFor(string $code): string
+    {
+        $map = [
+            'USD' => '$', 'EUR' => '€', 'GBP' => '£', 'KES' => 'KSh ', 'NGN' => '₦',
+            'GHS' => 'GH₵ ', 'ZAR' => 'R', 'TZS' => 'TSh ', 'UGX' => 'USh ', 'RWF' => 'FRw ',
+            'INR' => '₹', 'XOF' => 'CFA ', 'XAF' => 'FCFA ',
+        ];
+
+        return $map[strtoupper($code)] ?? (strtoupper($code) . ' ');
+    }
+
     public function branding(): array
     {
         return [
             'app_name' => $this->settings->get('app.name', config('app.name', 'Zaga')) ?: 'Zaga',
             'primary_color' => $this->settings->get('branding.primary_color', self::DEFAULT_COLOR) ?: self::DEFAULT_COLOR,
             'logo_path' => $this->settings->get('branding.logo_path'),
+            'icon_path' => $this->settings->get('branding.icon_path'),
             'favicon_path' => $this->settings->get('branding.favicon_path'),
         ];
     }
@@ -94,6 +116,10 @@ class SettingsService
 
         if (! empty($data['logo_path'])) {
             $this->settings->set('branding.logo_path', $data['logo_path']);
+        }
+
+        if (! empty($data['icon_path'])) {
+            $this->settings->set('branding.icon_path', $data['icon_path']);
         }
 
         if (! empty($data['favicon_path'])) {

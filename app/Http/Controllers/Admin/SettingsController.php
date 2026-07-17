@@ -78,6 +78,7 @@ class SettingsController extends Controller
             'app_name' => ['required', 'string', 'max:60'],
             'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:5120'],
+            'icon' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'],
             'favicon' => ['nullable', 'image', 'mimes:png,ico,svg,gif', 'max:1024'],
         ]);
 
@@ -85,6 +86,10 @@ class SettingsController extends Controller
 
         if ($request->hasFile('logo')) {
             $branding['logo_path'] = $this->storeUpload($request->file('logo'), 'logo');
+        }
+
+        if ($request->hasFile('icon')) {
+            $branding['icon_path'] = $this->storeUpload($request->file('icon'), 'icon');
         }
 
         if ($request->hasFile('favicon')) {

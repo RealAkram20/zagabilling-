@@ -15,6 +15,13 @@
             fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
         } } }
     </script>
+    <script>
+        window.zagaCurrencyPrefix = @json($currencyPrefix ?? 'KSh ');
+        window.zagaMoney = function (n, d) {
+            d = (d === undefined) ? 2 : d;
+            return window.zagaCurrencyPrefix + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+        };
+    </script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style> body { -webkit-font-smoothing: antialiased; } .tnum { font-variant-numeric: tabular-nums; } [x-cloak]{display:none!important} </style>
 </head>
@@ -22,15 +29,21 @@
     <header class="h-[62px] flex-none bg-white border-b border-[#E9EBEF] flex items-center justify-between px-5 sm:px-7">
         <div class="flex items-center gap-2.5">
             @if ($logoUrl)
-                <img src="{{ $logoUrl }}" alt="{{ $appName }}" class="w-8 h-8 rounded-lg object-contain">
+                <img src="{{ $logoUrl }}" alt="{{ $appName }}" class="h-8 w-auto max-w-[150px] object-contain">
             @else
-                <div class="w-8 h-8 rounded-lg bg-brand flex items-center justify-center shadow-[0_2px_6px_rgba(75,69,199,.35)]">
-                    <x-icon name="lock" class="w-4 h-4 text-white" sw="2.2" />
-                </div>
+                @if (! empty($iconUrl))
+                    <img src="{{ $iconUrl }}" alt="{{ $appName }}" class="w-8 h-8 rounded-lg object-contain">
+                @else
+                    <div class="w-8 h-8 rounded-lg bg-brand flex items-center justify-center shadow-[0_2px_6px_rgba(75,69,199,.35)]">
+                        <x-icon name="lock" class="w-4 h-4 text-white" sw="2.2" />
+                    </div>
+                @endif
+                <span class="font-bold text-[15px] tracking-[-0.02em]">{{ $appName }}</span>
             @endif
-            <span class="font-bold text-[15px] tracking-[-0.02em]">{{ $appName }}</span>
         </div>
-        <a href="{{ route('admin.dashboard') }}" class="text-[12.5px] text-[#787E88] hover:text-brand font-medium">← Back to admin</a>
+        @auth
+            <a href="{{ route('admin.dashboard') }}" class="text-[12.5px] text-[#787E88] hover:text-brand font-medium">← Back to admin</a>
+        @endauth
     </header>
     <main class="flex-1 flex items-center justify-center px-4 py-8 sm:py-12">
         <div class="w-full max-w-[440px]">

@@ -35,6 +35,17 @@ class DeviceApiController extends Controller
             return response()->json(['message' => 'Invalid or expired enrollment code.'], 422);
         }
 
+        // Enrolling arms the lock, and a device with no unlock token yet is locked from
+        // the moment it arms. The only token a device can ever be given is the one
+        // issued when it goes on a plan, so enrolling before that would lock the
+        // machine with no code in existence to open it again. Refuse instead.
+        if (! $device->isEnrolled()) {
+            return response()->json([
+                'message' => "Device {$device->account_number} is not on a payment plan yet. "
+                    . 'Assign a client and plan on the portal, then enroll.',
+            ], 422);
+        }
+
         // The machine knows what it is better than whoever typed the record, so its
         // firmware wins. Refuse only when the serial already belongs to a different
         // device, which would otherwise break the unique index.
@@ -58,6 +69,12 @@ class DeviceApiController extends Controller
             'last_seen_at' => now(),
             'agent_version' => $data['agent_version'] ?? $device->agent_version,
         ])->save();
+
+        // A device holds exactly one API token. Enrolling again issues a fresh one, so
+        // the previous must stop working — otherwise every re-enrollment leaves another
+        // live credential behind, and a token captured from a machine that has since
+        // been re-enrolled would still check in and pull unlock codes.
+        $device->tokens()->delete();
 
         $token = $device->createToken('device:' . $device->account_number)->plainTextToken;
 

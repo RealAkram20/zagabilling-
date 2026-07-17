@@ -33,9 +33,9 @@
             <div>
                 <label class="block text-[12.5px] font-medium text-[#4A4F58] mb-1.5">Selling price <span class="text-[#C2453D]">*</span></label>
                 <div class="relative">
-                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-[#9AA0AA]">$</span>
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-[#9AA0AA]">{{ trim(currency_prefix()) }}</span>
                     <input name="price" type="number" step="0.01" min="0" value="{{ old('price', $device->price) }}" required
-                           class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg pl-7 pr-3 text-[13px] tnum outline-none focus:border-brand">
+                           class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg pl-12 pr-3 text-[13px] tnum outline-none focus:border-brand">
                 </div>
             </div>
             <div>
@@ -43,8 +43,9 @@
                 <input name="serial" value="{{ old('serial', $device->serial) }}" required class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] tnum outline-none focus:border-brand">
             </div>
             <div>
-                <label class="block text-[12.5px] font-medium text-[#4A4F58] mb-1.5">Account number <span class="text-[#C2453D]">*</span></label>
-                <input name="account_number" value="{{ old('account_number', $device->account_number) }}" required class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] tnum outline-none focus:border-brand">
+                <label class="block text-[12.5px] font-medium text-[#4A4F58] mb-1.5">Account number</label>
+                <div class="w-full h-10 border border-[#E4E6EB] bg-[#EEF0F3] rounded-lg px-3 text-[13px] tnum text-[#565b64] flex items-center">{{ $device->account_number }}</div>
+                <p class="text-[11px] text-[#9AA0AA] mt-1">Fixed for the life of the device — the machine stores this copy too.</p>
             </div>
         </div>
 

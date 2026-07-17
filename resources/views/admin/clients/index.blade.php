@@ -45,13 +45,42 @@
         @endcan
     </x-page-header>
 
-    <form method="GET" class="flex items-center gap-2.5 mb-3.5">
-        <div class="relative flex-1 max-w-xs">
+    {{-- Sort and page size submit on change, so the list is one interaction away from
+         any arrangement rather than a form to fill in. --}}
+    <form method="GET" class="flex items-center gap-2.5 mb-3.5 flex-wrap">
+        <div class="relative flex-1 min-w-[200px] max-w-sm">
             <x-icon name="search" class="w-[15px] h-[15px] text-[#A6ABB4] absolute left-3 top-1/2 -translate-y-1/2" sw="2" />
-            <input name="search" value="{{ $filters['search'] ?? '' }}" placeholder="Search name, email, phone…"
-                   class="w-full h-9 border border-[#E4E6EB] bg-white rounded-lg pl-9 pr-3 text-[13px] outline-none focus:border-brand">
+            <input name="search" value="{{ $filters['search'] ?? '' }}" placeholder="Search name, phone, ID, email…"
+                   class="w-full h-9 border border-[#E4E6EB] bg-white rounded-lg pl-9 pr-8 text-[13px] outline-none focus:border-brand">
+            @if (! empty($filters['search']))
+                <a href="{{ route('admin.clients.index', array_filter(['sort' => $filters['sort'] ?? null, 'per_page' => $perPage !== 15 ? $perPage : null])) }}"
+                   aria-label="Clear search" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#A6ABB4] hover:text-[#565b64]">
+                    <x-icon name="x" class="w-3.5 h-3.5" sw="2.2" />
+                </a>
+            @endif
         </div>
         <button class="h-9 px-3.5 rounded-lg bg-brand text-white text-[12.5px] font-medium">Search</button>
+
+        <select name="sort" onchange="this.form.submit()"
+                class="h-9 border border-[#E4E6EB] bg-white rounded-lg px-2.5 text-[12.5px] text-[#4A4F58] outline-none focus:border-brand cursor-pointer">
+            @foreach (\App\Repositories\ClientRepository::SORTS as $key => [$label, , ])
+                <option value="{{ $key }}" @selected(($filters['sort'] ?? 'recent') === $key)>{{ $label }}</option>
+            @endforeach
+        </select>
+
+        <select name="per_page" onchange="this.form.submit()"
+                class="h-9 border border-[#E4E6EB] bg-white rounded-lg px-2.5 text-[12.5px] text-[#4A4F58] outline-none focus:border-brand cursor-pointer">
+            @foreach (\App\Repositories\ClientRepository::PER_PAGE_OPTIONS as $option)
+                <option value="{{ $option }}" @selected($perPage === $option)>{{ $option }} per page</option>
+            @endforeach
+        </select>
+
+        @if (! empty($filters['search']))
+            <span class="text-[12.5px] text-[#787E88]">
+                <span class="font-semibold text-[#1A1D23] tnum">{{ $clients->total() }}</span>
+                {{ Str::plural('match', $clients->total()) }} for “{{ $filters['search'] }}”
+            </span>
+        @endif
     </form>
 
     @php
@@ -64,7 +93,7 @@
             <span class="text-[13px] font-medium text-brand"><span x-text="selected.length"></span> selected</span>
             <div class="flex items-center gap-2">
                 <button @click="selected=[]" class="h-8 px-3 rounded-lg border border-[#E4E6EB] bg-white text-[12.5px] text-[#4A4F58]">Clear</button>
-                <form method="POST" action="{{ route('admin.clients.bulkDestroy') }}" onsubmit="return confirm('Delete the selected clients? Their devices return to inventory.');">
+                <form method="POST" action="{{ route('admin.clients.bulkDestroy') }}" data-confirm="Delete the selected clients? Their devices return to inventory.">
                     @csrf
                     @method('DELETE')
                     <template x-for="id in selected" :key="id"><input type="hidden" name="ids[]" :value="id"></template>
@@ -92,9 +121,15 @@
                             <input type="checkbox" value="{{ $client->id }}" x-model.number="selected" @click.stop class="rounded border-[#D8DBE0] w-4 h-4">
                         @endif
                         <span class="flex items-center gap-2.5 min-w-0"><x-avatar :name="$client->name" :image="$client->avatarUrl()" :size="30" :variant="$variant" /><span class="font-medium truncate">{{ $client->name }}</span></span>
-                        <span class="text-[#787E88] truncate">{{ $client->email ?? '—' }}</span>
+                        {{-- Phone leads: it is what anyone scanning this list is going to use. --}}
+                        <span class="min-w-0">
+                            <span class="block tnum truncate">{{ $client->phone ?? '—' }}</span>
+                            @if ($client->email)
+                                <span class="block text-[11.5px] text-[#9AA0AA] truncate">{{ $client->email }}</span>
+                            @endif
+                        </span>
                         <span class="tnum text-center">{{ $client->devices_count }}</span>
-                        <span class="tnum text-right font-semibold">${{ number_format((float) $client->total_balance, 0) }}</span>
+                        <span class="tnum text-right font-semibold">{{ money($client->total_balance, 0) }}</span>
                         <span class="text-[#C3C7CE]"><x-icon name="chevron-right" class="w-4 h-4" /></span>
                     </div>
                 @empty
@@ -104,7 +139,19 @@
         </div>
     </div>
 
-    <div class="mt-4">{{ $clients->links() }}</div>
+    {{-- The count sits outside links(), which renders nothing at all on a single page.
+         With a large list, knowing where you are is the point. --}}
+    <div class="mt-4 flex items-center justify-between gap-3 flex-wrap">
+        <span class="text-[12.5px] text-[#787E88]">
+            @if ($clients->total() > 0)
+                Showing <span class="tnum font-medium text-[#1A1D23]">{{ $clients->firstItem() }}–{{ $clients->lastItem() }}</span>
+                of <span class="tnum font-medium text-[#1A1D23]">{{ $clients->total() }}</span> {{ Str::plural('client', $clients->total()) }}
+            @else
+                No clients to show
+            @endif
+        </span>
+        <div>{{ $clients->links() }}</div>
+    </div>
 
     {{-- Detail drawer --}}
     <div x-show="open" x-cloak class="fixed inset-0 z-50">
@@ -173,6 +220,42 @@
                     <textarea name="address" rows="2" required class="w-full border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-brand">{{ old('address') }}</textarea>
                 </div>
 
+                {{-- Someone to reach when the client's own phone is off. Optional, and
+                     collapsed by default so it never slows down a routine sign-up —
+                     but it reopens on validation errors so a half-filled entry is not
+                     silently hidden. --}}
+                <div class="rounded-xl border border-[#E9EBEF] p-4"
+                     x-data="{ open: {{ $errors->has('alt_contact_name') || $errors->has('alt_contact_phone') || old('alt_contact_phone') ? 'true' : 'false' }} }">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <div class="text-[13px] font-semibold">Alternate contact <span class="text-[#9AA0AA] font-normal">(optional)</span></div>
+                            <div class="text-[11.5px] text-[#9AA0AA] mt-0.5">Someone else to call if the client's phone is off. Shown on the device page.</div>
+                        </div>
+                        <button type="button" @click="open = !open"
+                                class="flex-none h-8 px-3 rounded-lg border border-[#E4E6EB] bg-white text-[12px] font-semibold text-[#565b64] hover:border-brand hover:text-brand">
+                            <span x-show="!open">Add</span>
+                            <span x-show="open" x-cloak>Skip</span>
+                        </button>
+                    </div>
+                    <div x-show="open" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                        <div>
+                            <label class="block text-[11.5px] font-medium text-[#565b64] mb-1.5">Full name</label>
+                            <input name="alt_contact_name" value="{{ old('alt_contact_name') }}"
+                                   class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] outline-none focus:border-brand">
+                        </div>
+                        <div>
+                            <label class="block text-[11.5px] font-medium text-[#565b64] mb-1.5">Phone</label>
+                            <input name="alt_contact_phone" value="{{ old('alt_contact_phone') }}"
+                                   class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] outline-none focus:border-brand">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-[11.5px] font-medium text-[#565b64] mb-1.5">Relationship</label>
+                            <input name="alt_contact_relationship" value="{{ old('alt_contact_relationship') }}" placeholder="e.g. spouse, brother, employer"
+                                   class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] outline-none focus:border-brand">
+                        </div>
+                    </div>
+                </div>
+
                 <div class="rounded-xl border border-[#E9EBEF] p-4">
                     <div class="text-[13px] font-semibold mb-1">Start an installment <span class="text-[#9AA0AA] font-normal">(optional)</span></div>
                     <div class="text-[11.5px] text-[#9AA0AA] mb-3">Assign a device from inventory and begin a plan for the client.</div>
@@ -218,13 +301,13 @@
 
                     <div x-show="picked && plan" x-cloak class="rounded-lg border border-[#EEF0F3] p-3 mt-3">
                         <div class="grid grid-cols-3 gap-2 mb-2.5">
-                            <div><div class="text-[10.5px] text-[#9AA0AA]">Deposit</div><div class="tnum text-[13.5px] font-bold mt-0.5" x-text="'$' + deposit.toLocaleString()"></div></div>
-                            <div><div class="text-[10.5px] text-[#9AA0AA]">Financed</div><div class="tnum text-[13.5px] font-bold mt-0.5" x-text="'$' + financed.toLocaleString()"></div></div>
-                            <div><div class="text-[10.5px] text-[#9AA0AA]">Per pay</div><div class="tnum text-[13.5px] font-bold mt-0.5 text-brand" x-text="'$' + per.toLocaleString()"></div></div>
+                            <div><div class="text-[10.5px] text-[#9AA0AA]">Deposit</div><div class="tnum text-[13.5px] font-bold mt-0.5" x-text="zagaMoney(deposit, 0)"></div></div>
+                            <div><div class="text-[10.5px] text-[#9AA0AA]">Financed</div><div class="tnum text-[13.5px] font-bold mt-0.5" x-text="zagaMoney(financed, 0)"></div></div>
+                            <div><div class="text-[10.5px] text-[#9AA0AA]">Per pay</div><div class="tnum text-[13.5px] font-bold mt-0.5 text-brand" x-text="zagaMoney(per, 0)"></div></div>
                         </div>
                         <div class="flex items-center justify-between text-[11.5px] mb-1.5">
                             <span class="text-[#565b64] font-medium" x-text="'0 of ' + (plan ? plan.term : 0) + ' paid'"></span>
-                            <span class="text-[#787E88] tnum" x-text="'$' + financed.toLocaleString() + ' remaining'"></span>
+                            <span class="text-[#787E88] tnum" x-text="zagaMoney(financed, 0) + ' remaining'"></span>
                         </div>
                         <div class="flex gap-1 items-center">
                             <div class="h-2 rounded-[5px] bg-[#C69214]" style="flex: 1;"></div>

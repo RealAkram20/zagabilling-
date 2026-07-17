@@ -1,4 +1,9 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Already inside public/ — leave it alone (prevents public/public/...).
+    RewriteRule ^public/ - [L]
+
+    # Everything else is served from public/, so the app root stays out of the docroot.
     RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>

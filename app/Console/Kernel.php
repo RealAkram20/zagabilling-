@@ -15,7 +15,12 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')->hourly();
+        // Nothing else moves a device to grace or overdue, so without this the fleet
+        // stays "active" however long a customer goes without paying. Runs after
+        // midnight because the schedule is judged in whole days.
+        $schedule->command('devices:refresh-statuses')
+            ->dailyAt('00:15')
+            ->withoutOverlapping();
     }
 
     /**

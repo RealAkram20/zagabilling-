@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Services\NotificationService;
 use App\Services\SettingsService;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
@@ -21,6 +22,8 @@ class AppServiceProvider extends ServiceProvider
         if (! $this->app->runningInConsole() && config('app.url')) {
             URL::forceRootUrl(config('app.url'));
         }
+
+        Paginator::defaultView('pagination.zaga');
 
         $this->applyDynamicConfig();
         $this->composeBranding();
@@ -51,6 +54,12 @@ class AppServiceProvider extends ServiceProvider
             config(['app.name' => $branding['app_name']]);
         }
 
+        $currency = $settings->currency();
+        config([
+            'zaga.currency' => $currency,
+            'zaga.currency_prefix' => SettingsService::currencyPrefixFor($currency),
+        ]);
+
         $mail = $settings->mail();
 
         if (! empty($mail['host'])) {
@@ -75,19 +84,25 @@ class AppServiceProvider extends ServiceProvider
 
     private function composeBranding(): void
     {
-        View::composer(['layouts.admin', 'layouts.portal', 'layouts.guest'], function ($view) {
+        View::composer(['layouts.admin', 'layouts.portal', 'layouts.guest', 'client.lookup'], function ($view) {
             try {
                 $settings = app(SettingsService::class);
                 $branding = $settings->branding();
                 $tints = $settings->brandTints($branding['primary_color']);
+                $prefix = $settings->currencyPrefix();
             } catch (\Throwable $e) {
-                $branding = ['app_name' => 'Zaga', 'primary_color' => '#4B45C7', 'logo_path' => null, 'favicon_path' => null];
+                $branding = ['app_name' => 'Zaga', 'primary_color' => '#4B45C7', 'logo_path' => null, 'icon_path' => null, 'favicon_path' => null];
                 $tints = ['DEFAULT' => '#4B45C7', '50' => '#F1F0FC', '100' => '#E4E3F6'];
+                $prefix = 'KSh ';
             }
+
+            $iconPath = $branding['icon_path'] ?? null ?: ($branding['favicon_path'] ?? null);
 
             $view->with('appName', $branding['app_name']);
             $view->with('brandTints', $tints);
+            $view->with('currencyPrefix', $prefix);
             $view->with('logoUrl', ! empty($branding['logo_path']) ? asset($branding['logo_path']) : null);
+            $view->with('iconUrl', $iconPath ? asset($iconPath) : null);
             $view->with('faviconUrl', ! empty($branding['favicon_path']) ? asset($branding['favicon_path']) : asset('favicon.ico'));
         });
     }

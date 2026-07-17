@@ -76,6 +76,61 @@
     </div>
 </div>
 
+@if ($device->client)
+    {{-- Who to call. Sits above the plan because when a device is behind, reaching
+         the client is the first thing anyone opening this page needs. --}}
+    <div class="bg-white border border-[#E9EBEF] rounded-[14px] p-5 shadow-[0_1px_2px_rgba(16,20,28,.03)] mb-4">
+        <div class="flex items-center gap-2 mb-4">
+            <x-icon name="phone" class="w-[17px] h-[17px] text-brand" />
+            <span class="text-[14.5px] font-semibold">Contact</span>
+            @if (in_array($device->status, ['grace', 'overdue', 'locked'], true))
+                <span class="px-2 h-5 inline-flex items-center rounded-full bg-[#FBEAE8] border border-[#F1C9C4] text-[10.5px] font-semibold text-[#B23A30] capitalize">{{ $device->status }}</span>
+            @endif
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="border border-[#EEF0F3] rounded-xl p-4">
+                <div class="text-[11px] text-[#9AA0AA] mb-1.5">Client</div>
+                <a href="{{ route('admin.clients.index', ['client' => $device->client->id]) }}" class="text-[14px] font-semibold hover:text-brand">{{ $device->client->name }}</a>
+                <div class="mt-2 space-y-1">
+                    @if ($device->client->phone)
+                        <a href="tel:{{ $device->client->phone }}" class="flex items-center gap-1.5 text-[13px] tnum font-medium text-[#1A1D23] hover:text-brand">
+                            <x-icon name="phone" class="w-3.5 h-3.5 text-[#9AA0AA]" /> {{ $device->client->phone }}
+                        </a>
+                    @endif
+                    @if ($device->client->email)
+                        <div class="text-[12px] text-[#787E88] truncate">{{ $device->client->email }}</div>
+                    @endif
+                    @if ($device->client->national_id)
+                        <div class="text-[11.5px] text-[#9AA0AA] tnum">ID {{ $device->client->national_id }}</div>
+                    @endif
+                </div>
+            </div>
+
+            <div class="border border-[#EEF0F3] rounded-xl p-4">
+                <div class="text-[11px] text-[#9AA0AA] mb-1.5">Alternate contact</div>
+                @if ($device->client->hasAltContact())
+                    <div class="text-[14px] font-semibold">{{ $device->client->alt_contact_name ?: 'Not named' }}</div>
+                    @if ($device->client->alt_contact_relationship)
+                        <div class="text-[11.5px] text-[#9AA0AA] capitalize">{{ $device->client->alt_contact_relationship }}</div>
+                    @endif
+                    <div class="mt-2">
+                        <a href="tel:{{ $device->client->alt_contact_phone }}" class="flex items-center gap-1.5 text-[13px] tnum font-medium text-[#1A1D23] hover:text-brand">
+                            <x-icon name="phone" class="w-3.5 h-3.5 text-[#9AA0AA]" /> {{ $device->client->alt_contact_phone }}
+                        </a>
+                    </div>
+                @else
+                    <div class="text-[13px] text-[#9AA0AA] mt-1">None recorded.</div>
+                    @can('manage-clients')
+                        <a href="{{ route('admin.clients.index', ['client' => $device->client->id]) }}" class="inline-flex items-center gap-1 text-[12px] font-medium text-brand hover:underline mt-2">
+                            <x-icon name="plus" class="w-3 h-3" /> Add one
+                        </a>
+                    @endcan
+                @endif
+            </div>
+        </div>
+    </div>
+@endif
+
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
     <div class="lg:col-span-2 space-y-4">
         @if ($device->isEnrolled())

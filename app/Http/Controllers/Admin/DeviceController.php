@@ -82,7 +82,8 @@ class DeviceController extends Controller
     public function update(Request $request, Device $device): RedirectResponse
     {
         $data = $request->validate([
-            'account_number' => ['required', 'string', 'max:40', Rule::unique('devices', 'account_number')->ignore($device->id)],
+            // account_number is deliberately absent: it is the device's identity, is
+            // cached in the machine's store, and cannot be changed after the fact.
             'serial' => ['required', 'string', 'max:120', Rule::unique('devices', 'serial')->ignore($device->id)],
             'name' => ['nullable', 'string', 'max:255'],
             'model' => ['nullable', 'string', 'max:255'],
@@ -105,6 +106,9 @@ class DeviceController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
+            // Minted by the device at install and read out of the Zaga app, so the
+            // machine and this record agree from the start. Generated here only as a
+            // fallback for a device registered before it is installed.
             'account_number' => ['nullable', 'string', 'max:40', 'unique:devices,account_number'],
             // Optional: the device reports its real serial from firmware when it
             // enrolls, so an operator no longer has to read it off a sticker.
@@ -256,5 +260,39 @@ class DeviceController extends Controller
         $this->deviceService->delete($device);
 
         return redirect()->route('admin.devices.index')->with('status', 'Device deleted.');
+    }
+
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer', 'exists:devices,id'],
+        ]);
+
+        $devices = Device::whereIn('id', $data['ids'])->get();
+
+        // Deleting a financed device takes its payment history with it, and that is
+        // the record of money a customer actually handed over. One at a time an
+        // operator sees what they are removing; in bulk they do not, so financed
+        // devices are left behind and reported rather than quietly destroyed.
+        [$financed, $removable] = $devices->partition(fn (Device $device) => $device->isEnrolled());
+
+        foreach ($removable as $device) {
+            $this->deviceService->delete($device);
+        }
+
+        $message = $removable->isEmpty()
+            ? 'No devices were deleted.'
+            : "{$removable->count()} device(s) deleted.";
+
+        if ($financed->isNotEmpty()) {
+            $accounts = $financed->pluck('account_number')->join(', ');
+
+            return redirect()->route('admin.devices.index')
+                ->with('status', $message)
+                ->withErrors(['devices' => "Skipped {$financed->count()} device(s) assigned to a client: {$accounts}. Unassign them first — deleting them would destroy their payment history."]);
+        }
+
+        return redirect()->route('admin.devices.index')->with('status', $message);
     }
 }

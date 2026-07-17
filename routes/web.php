@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AccountController;
+use App\Http\Controllers\Admin\ArrearsController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -12,8 +13,6 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Client\UnlockController;
 use Illuminate\Support\Facades\Route;
-
-Route::get('/', fn () => redirect()->route('admin.dashboard'));
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
@@ -34,6 +33,7 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::get('/devices/bulk', [DeviceController::class, 'bulkCreate'])->middleware('can:manage-devices')->name('devices.bulk');
     Route::post('/devices/bulk', [DeviceController::class, 'bulkStore'])->middleware('can:manage-devices')->name('devices.bulk.store');
     Route::post('/devices', [DeviceController::class, 'store'])->middleware('can:manage-devices')->name('devices.store');
+    Route::delete('/devices/bulk', [DeviceController::class, 'bulkDestroy'])->middleware('can:manage-devices')->name('devices.bulkDestroy');
     Route::get('/devices/{device}', [DeviceController::class, 'show'])->name('devices.show');
     Route::get('/devices/{device}/edit', [DeviceController::class, 'edit'])->middleware('can:manage-devices')->name('devices.edit');
     Route::patch('/devices/{device}', [DeviceController::class, 'update'])->middleware('can:manage-devices')->name('devices.update');
@@ -62,6 +62,8 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::delete('/plans/{plan}', [PlanController::class, 'destroy'])->middleware('can:manage-plans')->name('plans.destroy');
 
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
+
+    Route::get('/arrears', [ArrearsController::class, 'index'])->name('arrears');
 
     Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');
 
@@ -94,7 +96,17 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     });
 });
 
-Route::prefix('unlock')->name('portal.')->group(function () {
+// Legacy /unlock paths. PesaPal holds a registered IPN/callback URL under this
+// prefix, so these must keep resolving even though the portal now lives at root.
+Route::prefix('unlock')->group(function () {
+    Route::get('/callback', [UnlockController::class, 'callback']);
+    Route::match(['get', 'post'], '/ipn', [UnlockController::class, 'ipn']);
+    Route::redirect('/', '/', 301);
+    Route::get('/{device}/{action}', fn (string $device, string $action) => redirect("/{$device}/{$action}", 301))
+        ->whereIn('action', ['summary', 'payment', 'code']);
+});
+
+Route::name('portal.')->group(function () {
     Route::get('/', [UnlockController::class, 'lookup'])->name('lookup');
     Route::post('/', [UnlockController::class, 'find'])->name('find');
     Route::get('/callback', [UnlockController::class, 'callback'])->name('callback');

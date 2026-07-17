@@ -33,7 +33,7 @@
                             <button @click="editing = !editing" class="w-9 h-9 rounded-lg border border-[#E4E6EB] bg-white flex items-center justify-center text-[#787E88] hover:bg-[#FBFBFC]" title="Edit plan">
                                 <x-icon name="pencil" class="w-3.5 h-3.5" />
                             </button>
-                            <form method="POST" action="{{ route('admin.plans.destroy', $plan) }}" onsubmit="return confirm('Delete the {{ $plan->name }} plan?');">
+                            <form method="POST" action="{{ route('admin.plans.destroy', $plan) }}" data-confirm="Delete the {{ $plan->name }} plan?">
                                 @csrf
                                 @method('DELETE')
                                 <button class="w-9 h-9 rounded-lg border border-[#E7C9C4] bg-white flex items-center justify-center text-[#B23A30] hover:bg-[#FDF6F5]" title="Delete plan">

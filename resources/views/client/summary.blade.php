@@ -20,18 +20,18 @@
     </div>
 
     <div class="text-center py-2">
-        <div class="tnum text-[38px] font-bold tracking-[-0.02em]">${{ number_format($device->installmentAmount(), 2) }}</div>
+        <div class="tnum text-[38px] font-bold tracking-[-0.02em]">{{ money($device->installmentAmount()) }}</div>
         <div class="text-[12.5px] text-[#787E88]">Installment {{ $p['current'] }} of {{ $p['total'] }}</div>
     </div>
 
     <div class="flex items-center justify-between text-[12px] mt-4 mb-2">
         <span class="text-[#565b64] font-medium">{{ $p['paid'] }} of {{ $p['total'] }} paid</span>
-        <span class="text-[#787E88] tnum">${{ number_format((float) $device->balance, 0) }} remaining</span>
+        <span class="text-[#787E88] tnum">{{ money($device->balance, 0) }} remaining</span>
     </div>
     <x-progress-bar :paid="$p['paid']" :total="$p['total']" :current="false" />
 
     <a href="{{ route('portal.payment', $device) }}" class="mt-6 flex items-center justify-center w-full h-12 rounded-[11px] bg-brand text-white text-[13px] font-semibold shadow-[0_2px_8px_rgba(75,69,199,.32)]">
-        Pay ${{ number_format($device->installmentAmount(), 2) }}
+        Pay {{ money($device->installmentAmount()) }}
     </a>
     <p class="text-center text-[11.5px] text-[#9AA0AA] mt-4">Paying this installment clears your grace period and unlocks the device.</p>
 </div>

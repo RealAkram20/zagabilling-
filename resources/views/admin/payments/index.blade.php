@@ -8,15 +8,15 @@
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-4">
     <div class="bg-white border border-[#E9EBEF] rounded-[13px] p-4 shadow-[0_1px_2px_rgba(16,20,28,.03)]">
         <div class="text-[11.5px] text-[#8A909A] font-medium">Collected today</div>
-        <div class="tnum text-[23px] font-bold mt-2">${{ number_format((float) $summary['collected_today'], 0) }}</div>
+        <div class="tnum text-[23px] font-bold mt-2">{{ money($summary['collected_today'], 0) }}</div>
     </div>
     <div class="bg-white border border-[#E9EBEF] rounded-[13px] p-4 shadow-[0_1px_2px_rgba(16,20,28,.03)]">
         <div class="text-[11.5px] text-[#8A909A] font-medium">Pending settlement</div>
-        <div class="tnum text-[23px] font-bold mt-2 text-[#8A6410]">${{ number_format((float) $summary['pending'], 0) }}</div>
+        <div class="tnum text-[23px] font-bold mt-2 text-[#8A6410]">{{ money($summary['pending'], 0) }}</div>
     </div>
     <div class="bg-white border border-[#E9EBEF] rounded-[13px] p-4 shadow-[0_1px_2px_rgba(16,20,28,.03)]">
         <div class="text-[11.5px] text-[#8A909A] font-medium">Failed (7 days)</div>
-        <div class="tnum text-[23px] font-bold mt-2 text-[#B23A30]">${{ number_format((float) $summary['failed_7d'], 0) }}</div>
+        <div class="tnum text-[23px] font-bold mt-2 text-[#B23A30]">{{ money($summary['failed_7d'], 0) }}</div>
     </div>
 </div>
 
@@ -50,7 +50,7 @@
                     <span class="tnum text-[#787E88]">{{ ($payment->paid_at ?? $payment->created_at)->format('M j, H:i') }}</span>
                     <span class="tnum text-brand font-semibold">{{ $payment->device->account_number ?? '—' }}</span>
                     <span class="font-medium truncate">{{ $payment->client->name ?? '—' }}</span>
-                    <span class="tnum text-right font-semibold">${{ number_format((float) $payment->amount, 2) }}</span>
+                    <span class="tnum text-right font-semibold">{{ money($payment->amount) }}</span>
                     <span class="text-[#565b64] truncate">{{ $payment->method_label ?? 'PesaPal' }}</span>
                     <span class="text-right"><x-status-badge :status="$payment->status" /></span>
                 </div>

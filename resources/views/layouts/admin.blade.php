@@ -9,6 +9,7 @@
             ['admin.plans.index', 'Plans', 'plans', 'admin.plans.*', null],
             ['admin.clients.index', 'Clients', 'clients', 'admin.clients.*', null],
             ['admin.payments.index', 'Payments', 'payments', 'admin.payments.*', null],
+            ['admin.arrears', 'Arrears', 'phone', 'admin.arrears', null],
         ],
         'System' => [
             ['admin.notifications.index', 'Notifications', 'bell', 'admin.notifications.*', null],
@@ -36,6 +37,13 @@
                 fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
             } },
         }
+    </script>
+    <script>
+        window.zagaCurrencyPrefix = @json($currencyPrefix ?? 'KSh ');
+        window.zagaMoney = function (n, d) {
+            d = (d === undefined) ? 2 : d;
+            return window.zagaCurrencyPrefix + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+        };
     </script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
@@ -66,16 +74,15 @@
            :class="{ 'translate-x-0': mobileOpen, 'lg:w-[72px]': collapsed, 'lg:w-[236px]': !collapsed }">
         <div class="h-16 flex items-center gap-3 px-4 flex-none">
             @if ($logoUrl)
-                <img src="{{ $logoUrl }}" alt="{{ $appName }}" class="w-9 h-9 rounded-[9px] object-contain flex-none">
+                <div class="hidden flex-none" :class="collapsed ? 'lg:flex' : 'lg:hidden'">@include('partials.brand-icon')</div>
+                <img src="{{ $logoUrl }}" alt="{{ $appName }}" class="h-9 w-auto max-w-[150px] object-contain" :class="collapsed ? 'lg:hidden' : ''">
             @else
-                <div class="w-9 h-9 rounded-[9px] bg-brand flex items-center justify-center shadow-[0_2px_6px_rgba(75,69,199,.35)] flex-none">
-                    <x-icon name="lock" class="w-[18px] h-[18px] text-white" sw="2.2" />
+                <span class="flex-none">@include('partials.brand-icon')</span>
+                <div class="leading-none" :class="collapsed ? 'lg:hidden' : ''">
+                    <div class="font-bold text-[16px] tracking-[-0.02em]">{{ $appName }}</div>
+                    <div class="text-[10.5px] text-[#9AA0AA] uppercase tracking-[0.06em] mt-1">Device Lock</div>
                 </div>
             @endif
-            <div class="leading-none" :class="collapsed ? 'lg:hidden' : ''">
-                <div class="font-bold text-[16px] tracking-[-0.02em]">{{ $appName }}</div>
-                <div class="text-[10.5px] text-[#9AA0AA] uppercase tracking-[0.06em] mt-1">Device Lock</div>
-            </div>
             <button @click="toggle()" class="ml-auto hidden lg:flex w-7 h-7 rounded-md border border-[#E4E6EB] items-center justify-center text-[#9AA0AA] hover:text-brand hover:border-brand transition">
                 <x-icon name="chevrons-left" class="w-4 h-4" x-show="!collapsed" />
                 <x-icon name="chevron-right" class="w-4 h-4" x-show="collapsed" x-cloak />
@@ -198,5 +205,6 @@
         </main>
     </div>
 </div>
+@include('partials.confirm-modal')
 </body>
 </html>

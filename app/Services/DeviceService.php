@@ -40,7 +40,13 @@ class DeviceService
     public function register(array $data): Device
     {
         $device = Device::create([
-            'account_number' => ! empty($data['account_number']) ? $data['account_number'] : $this->generateAccountNumber(),
+            // The device mints its own number at install; an operator reads it out of
+            // the Zaga app and registers the device with it. Generated here only when
+            // a record is created before the machine exists. Never editable
+            // afterwards: the device caches this copy and the customer pays against it.
+            'account_number' => ! empty($data['account_number'])
+                ? strtoupper(trim($data['account_number']))
+                : $this->generateAccountNumber(),
             // Left null when unknown; the device reports its firmware serial at enrollment.
             'serial' => ! empty($data['serial']) ? $data['serial'] : null,
             'name' => $data['name'] ?? null,
@@ -51,6 +57,8 @@ class DeviceService
             'bios_password' => $data['bios_password'] ?? null,
             'recovery_key' => $data['recovery_key'] ?? null,
             'hmac_secret' => $this->generateHmacSecret(),
+            // The device app generates this and shows it at registration time; the
+            // portal only records the copy an operator enters.
             'uninstall_code' => $data['uninstall_code'] ?? null,
         ]);
 
@@ -83,7 +91,6 @@ class DeviceService
     public function update(Device $device, array $data): void
     {
         $attributes = [
-            'account_number' => $data['account_number'],
             'serial' => $data['serial'],
             'name' => $data['name'] ?? null,
             'model' => $data['model'] ?? null,
@@ -182,4 +189,5 @@ class DeviceService
     {
         return bin2hex(random_bytes(32));
     }
+
 }

@@ -60,27 +60,62 @@
     <button class="h-9 px-3.5 rounded-lg bg-brand text-white text-[12.5px] font-medium">Filter</button>
 </form>
 
-<div class="bg-white border border-[#E9EBEF] rounded-[14px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden">
-    <div class="overflow-x-auto">
-        <div class="min-w-[860px]">
-            <div class="grid grid-cols-[1.1fr_1.1fr_1.3fr_1fr_0.95fr_0.9fr_0.9fr] gap-3.5 px-5 py-3 text-[10.5px] font-semibold uppercase tracking-wide text-[#A6ABB4] bg-[#FBFBFC] border-b border-[#EEF0F3]">
-                <span>Account</span><span>Serial</span><span>Client</span><span>Plan</span>
-                <span class="text-right">Balance</span><span>Status</span><span>Next due</span>
+@php $canManage = auth()->user()->can('manage-devices'); @endphp
+<div x-data="{ selected: [], pageIds: @js($devices->pluck('id')->all()) }">
+    @if ($canManage)
+        <div x-show="selected.length" x-cloak class="flex items-center justify-between gap-3 mb-3 px-4 py-2.5 rounded-xl bg-brand-50 border border-brand-100">
+            <span class="text-[13px] font-medium text-brand"><span x-text="selected.length"></span> selected</span>
+            <div class="flex items-center gap-2">
+                <button @click="selected=[]" class="h-8 px-3 rounded-lg border border-[#E4E6EB] bg-white text-[12.5px] text-[#4A4F58]">Clear</button>
+                <form method="POST" action="{{ route('admin.devices.bulkDestroy') }}" data-confirm="Delete the selected devices? This removes their unlock codes. Devices assigned to a client are skipped.">
+                    @csrf
+                    @method('DELETE')
+                    <template x-for="id in selected" :key="id"><input type="hidden" name="ids[]" :value="id"></template>
+                    <button type="submit" class="h-8 px-3 rounded-lg bg-[#C2453D] text-white text-[12.5px] font-semibold flex items-center gap-1.5"><x-icon name="trash" class="w-3.5 h-3.5" /> Delete selected</button>
+                </form>
             </div>
-            @forelse ($devices as $device)
-                <a href="{{ route('admin.devices.show', $device) }}"
-                   class="grid grid-cols-[1.1fr_1.1fr_1.3fr_1fr_0.95fr_0.9fr_0.9fr] gap-3.5 px-5 py-3.5 text-[13px] items-center border-b border-[#F4F5F7] last:border-0 hover:bg-[#FBFAFF] transition">
-                    <span class="tnum font-semibold text-brand">{{ $device->account_number }}</span>
-                    <span class="tnum text-[#787E88] truncate">{{ $device->serial }}</span>
-                    <span class="font-medium truncate">{{ $device->client->name ?? 'Unassigned' }}</span>
-                    <span class="text-[#565b64] truncate">{{ $device->plan->name ?? '—' }}</span>
-                    <span class="tnum text-right font-semibold">${{ number_format((float) $device->balance, 0) }}</span>
-                    <span><x-status-badge :status="$device->status" /></span>
-                    <span class="tnum text-[#787E88]">{{ $device->next_due_at?->format('M j') ?? '—' }}</span>
-                </a>
-            @empty
-                <div class="px-5 py-10 text-center text-[13px] text-[#9AA0AA]">No devices match your filters.</div>
-            @endforelse
+        </div>
+    @endif
+
+    <div class="bg-white border border-[#E9EBEF] rounded-[14px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden">
+        <div class="overflow-x-auto">
+            <div class="min-w-[860px]">
+                {{-- Written out in full rather than interpolated: Tailwind only emits a
+                     class it can see literally in the source. --}}
+                @php
+                    $cols = $canManage
+                        ? 'grid-cols-[28px_1.1fr_1.1fr_1.3fr_1fr_0.95fr_0.9fr_0.9fr]'
+                        : 'grid-cols-[1.1fr_1.1fr_1.3fr_1fr_0.95fr_0.9fr_0.9fr]';
+                @endphp
+                <div class="grid {{ $cols }} gap-3.5 px-5 py-3 text-[10.5px] font-semibold uppercase tracking-wide text-[#A6ABB4] bg-[#FBFBFC] border-b border-[#EEF0F3]">
+                    @if ($canManage)
+                        <span><input type="checkbox" @change="selected = $event.target.checked ? [...pageIds] : []" :checked="pageIds.length && selected.length === pageIds.length" class="rounded border-[#D8DBE0] w-4 h-4"></span>
+                    @endif
+                    <span>Account</span><span>Serial</span><span>Client</span><span>Plan</span>
+                    <span class="text-right">Balance</span><span>Status</span><span>Next due</span>
+                </div>
+                @forelse ($devices as $device)
+                    <a href="{{ route('admin.devices.show', $device) }}"
+                       class="grid {{ $cols }} gap-3.5 px-5 py-3.5 text-[13px] items-center border-b border-[#F4F5F7] last:border-0 hover:bg-[#FBFAFF] transition"
+                       @if ($canManage) :class="selected.includes({{ $device->id }}) ? 'bg-[#FBFAFF]' : ''" @endif>
+                        @if ($canManage)
+                            {{-- The row is a link, so the checkbox has to stop the click from navigating. --}}
+                            <span @click.stop.prevent>
+                                <input type="checkbox" value="{{ $device->id }}" x-model.number="selected" @click.stop class="rounded border-[#D8DBE0] w-4 h-4">
+                            </span>
+                        @endif
+                        <span class="tnum font-semibold text-brand">{{ $device->account_number }}</span>
+                        <span class="tnum text-[#787E88] truncate">{{ $device->serial }}</span>
+                        <span class="font-medium truncate">{{ $device->client->name ?? 'Unassigned' }}</span>
+                        <span class="text-[#565b64] truncate">{{ $device->plan->name ?? '—' }}</span>
+                        <span class="tnum text-right font-semibold">{{ money($device->balance, 0) }}</span>
+                        <span><x-status-badge :status="$device->status" /></span>
+                        <span class="tnum text-[#787E88]">{{ $device->next_due_at?->format('M j') ?? '—' }}</span>
+                    </a>
+                @empty
+                    <div class="px-5 py-10 text-center text-[13px] text-[#9AA0AA]">No devices match your filters.</div>
+                @endforelse
+            </div>
         </div>
     </div>
 </div>

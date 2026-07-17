@@ -36,7 +36,7 @@
                 <button @click="editing = !editing" class="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[#E4E6EB] bg-white text-[12.5px] font-medium text-[#4A4F58] hover:bg-[#FBFBFC]">
                     <x-icon name="pencil" class="w-3.5 h-3.5" /> <span x-text="editing ? 'Close edit' : 'Edit'"></span>
                 </button>
-                <form method="POST" action="{{ route('admin.clients.destroy', $client) }}" onsubmit="return confirm('Delete this client? Their devices return to inventory.');">
+                <form method="POST" action="{{ route('admin.clients.destroy', $client) }}" data-confirm="Delete this client? Their devices return to inventory.">
                     @csrf
                     @method('DELETE')
                     <button class="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[#E7C9C4] bg-white text-[12.5px] font-medium text-[#B23A30] hover:bg-[#FDF6F5]"><x-icon name="trash" class="w-3.5 h-3.5" /> Delete</button>
@@ -65,6 +65,14 @@
                 <input name="national_id" value="{{ $client->national_id }}" required placeholder="National ID" class="h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] outline-none focus:border-brand">
             </div>
             <textarea name="address" rows="2" required placeholder="Address" class="w-full border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-brand">{{ $client->address }}</textarea>
+            <div class="pt-1">
+                <div class="text-[11.5px] font-semibold text-[#565b64] mb-1.5">Alternate contact <span class="text-[#9AA0AA] font-normal">(optional)</span></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input name="alt_contact_name" value="{{ $client->alt_contact_name }}" placeholder="Other person's name" class="h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] outline-none focus:border-brand">
+                    <input name="alt_contact_phone" value="{{ $client->alt_contact_phone }}" placeholder="Their phone" class="h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] outline-none focus:border-brand">
+                </div>
+                <input name="alt_contact_relationship" value="{{ $client->alt_contact_relationship }}" placeholder="Relationship, e.g. spouse" class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] outline-none focus:border-brand mt-2">
+            </div>
             <button type="submit" class="h-10 px-4 rounded-lg bg-brand text-white text-[13px] font-semibold shadow-[0_1px_3px_rgba(75,69,199,.35)]">Save changes</button>
         </form>
     @endcan
@@ -73,7 +81,7 @@
         <div class="grid grid-cols-2 gap-3 mb-6">
             <div class="border border-[#EEF0F3] rounded-xl p-4">
                 <div class="text-[11px] text-[#9AA0AA]">Total balance</div>
-                <div class="tnum text-[18px] font-bold mt-1">${{ number_format((float) $totalBalance, 0) }}</div>
+                <div class="tnum text-[18px] font-bold mt-1">{{ money($totalBalance, 0) }}</div>
             </div>
             <div class="border border-[#EEF0F3] rounded-xl p-4">
                 <div class="text-[11px] text-[#9AA0AA]">On-time rate</div>
@@ -142,13 +150,13 @@
 
                     <div x-show="picked && plan" x-cloak class="rounded-lg border border-[#EEF0F3] p-3 mb-2">
                         <div class="grid grid-cols-3 gap-2 mb-2.5">
-                            <div><div class="text-[10.5px] text-[#9AA0AA]">Deposit</div><div class="tnum text-[13px] font-bold mt-0.5" x-text="'$' + deposit.toLocaleString()"></div></div>
-                            <div><div class="text-[10.5px] text-[#9AA0AA]">Financed</div><div class="tnum text-[13px] font-bold mt-0.5" x-text="'$' + financed.toLocaleString()"></div></div>
-                            <div><div class="text-[10.5px] text-[#9AA0AA]">Per pay</div><div class="tnum text-[13px] font-bold mt-0.5 text-brand" x-text="'$' + per.toLocaleString()"></div></div>
+                            <div><div class="text-[10.5px] text-[#9AA0AA]">Deposit</div><div class="tnum text-[13px] font-bold mt-0.5" x-text="zagaMoney(deposit, 0)"></div></div>
+                            <div><div class="text-[10.5px] text-[#9AA0AA]">Financed</div><div class="tnum text-[13px] font-bold mt-0.5" x-text="zagaMoney(financed, 0)"></div></div>
+                            <div><div class="text-[10.5px] text-[#9AA0AA]">Per pay</div><div class="tnum text-[13px] font-bold mt-0.5 text-brand" x-text="zagaMoney(per, 0)"></div></div>
                         </div>
                         <div class="flex items-center justify-between text-[11.5px] mb-1.5">
                             <span class="text-[#565b64] font-medium" x-text="'0 of ' + (plan ? plan.term : 0) + ' paid'"></span>
-                            <span class="text-[#787E88] tnum" x-text="'$' + financed.toLocaleString() + ' remaining'"></span>
+                            <span class="text-[#787E88] tnum" x-text="zagaMoney(financed, 0) + ' remaining'"></span>
                         </div>
                         <div class="flex gap-1 items-center">
                             <div class="h-2 rounded-[5px] bg-[#C69214]" style="flex: 1;"></div>
@@ -171,7 +179,7 @@
             @forelse ($client->payments as $payment)
                 <div class="flex items-center justify-between py-2 text-[13px] border-b border-[#F4F5F7] last:border-0">
                     <span class="tnum text-[#787E88]">{{ $payment->paid_at?->format('M j, Y') ?? $payment->created_at->format('M j, Y') }}</span>
-                    <span class="tnum font-semibold">${{ number_format((float) $payment->amount, 2) }}</span>
+                    <span class="tnum font-semibold">{{ money($payment->amount) }}</span>
                 </div>
             @empty
                 <div class="text-[13px] text-[#9AA0AA]">No payments.</div>
