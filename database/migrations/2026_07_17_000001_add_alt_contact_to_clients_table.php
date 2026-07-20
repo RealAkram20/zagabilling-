@@ -6,11 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * A second person to reach when the client's own phone is off — the number an
-     * admin actually calls once a device falls behind. Optional: it is collected when
-     * the client is created, but never blocks creating one.
-     */
     public function up(): void
     {
         Schema::table('clients', function (Blueprint $table) {

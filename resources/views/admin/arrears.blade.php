@@ -65,8 +65,6 @@
                                 @elseif (! $device->client?->hasAltContact())
                                     <span class="text-[#9AA0AA]">—</span>
                                 @endif
-                                {{-- The fallback number is the whole point of this column once a
-                                     client stops answering, so it sits here rather than a click away. --}}
                                 @if ($device->client?->hasAltContact())
                                     <a href="tel:{{ $device->client->alt_contact_phone }}" class="flex items-center gap-1 text-[11.5px] tnum text-[#787E88] hover:text-brand mt-0.5">
                                         <x-icon name="phone" class="w-3 h-3 flex-none" /> {{ $device->client->alt_contact_phone }}

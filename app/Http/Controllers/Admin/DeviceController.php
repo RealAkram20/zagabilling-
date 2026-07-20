@@ -12,6 +12,7 @@ use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -82,8 +83,6 @@ class DeviceController extends Controller
     public function update(Request $request, Device $device): RedirectResponse
     {
         $data = $request->validate([
-            // account_number is deliberately absent: it is the device's identity, is
-            // cached in the machine's store, and cannot be changed after the fact.
             'serial' => ['required', 'string', 'max:120', Rule::unique('devices', 'serial')->ignore($device->id)],
             'name' => ['nullable', 'string', 'max:255'],
             'model' => ['nullable', 'string', 'max:255'],
@@ -106,12 +105,7 @@ class DeviceController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            // Minted by the device at install and read out of the Zaga app, so the
-            // machine and this record agree from the start. Generated here only as a
-            // fallback for a device registered before it is installed.
             'account_number' => ['nullable', 'string', 'max:40', 'unique:devices,account_number'],
-            // Optional: the device reports its real serial from firmware when it
-            // enrolls, so an operator no longer has to read it off a sticker.
             'serial' => ['nullable', 'string', 'max:120', 'unique:devices,serial'],
             'name' => ['nullable', 'string', 'max:255'],
             'model' => ['nullable', 'string', 'max:255'],
@@ -123,9 +117,6 @@ class DeviceController extends Controller
 
         $device = $this->deviceService->register($data);
 
-        // Issue the code straight away: registering a device is always followed by
-        // provisioning the machine, and the code only becomes valid once the device
-        // row exists, so this is the earliest it can honestly be shown.
         $code = $this->deviceService->issueEnrollmentCode($device);
 
         return redirect()
@@ -154,7 +145,6 @@ class DeviceController extends Controller
         $data = $request->validate([
             'client_id' => ['required', 'exists:clients,id'],
             'plan_id' => ['required', 'exists:plans,id'],
-            'next_due_at' => ['nullable', 'date'],
         ]);
 
         $code = $this->deviceService->enroll($device, $data);
@@ -231,8 +221,24 @@ class DeviceController extends Controller
         return response()->json($this->deviceService->revealProvisioning($device));
     }
 
-    // Issues the one-time code a device redeems to provision itself over the API.
-    // Mirrors the device:enroll-code command so onboarding never needs a terminal.
+    public function offlineEnrollCode(Device $device): JsonResponse
+    {
+        return response()->json([
+            'code' => $this->deviceService->offlineEnrollCode($device),
+            'account_number' => $device->account_number,
+        ]);
+    }
+
+    public function exportProvisioning(Device $device): Response
+    {
+        $bundle = $this->deviceService->exportProvisioningBundle($device);
+
+        return response(json_encode($bundle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES))
+            ->header('Content-Type', 'application/json')
+            ->header('Content-Disposition',
+                'attachment; filename="zaga-' . $device->account_number . '.json"');
+    }
+
     public function issueEnrollCode(Device $device): JsonResponse
     {
         $code = $this->deviceService->issueEnrollmentCode($device);
@@ -271,10 +277,6 @@ class DeviceController extends Controller
 
         $devices = Device::whereIn('id', $data['ids'])->get();
 
-        // Deleting a financed device takes its payment history with it, and that is
-        // the record of money a customer actually handed over. One at a time an
-        // operator sees what they are removing; in bulk they do not, so financed
-        // devices are left behind and reported rather than quietly destroyed.
         [$financed, $removable] = $devices->partition(fn (Device $device) => $device->isEnrolled());
 
         foreach ($removable as $device) {

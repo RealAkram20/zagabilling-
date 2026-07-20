@@ -27,18 +27,11 @@ class Client extends Model
         return $this->avatar_path ? asset($this->avatar_path) : null;
     }
 
-    /**
-     * Whether there is a second person worth calling. A name on its own is no use to
-     * someone chasing a payment, so the number is what makes it a contact.
-     */
     public function hasAltContact(): bool
     {
         return filled($this->alt_contact_phone);
     }
 
-    /**
-     * "Jane Doe (sister)", or just the number when nobody recorded a name.
-     */
     public function altContactLabel(): ?string
     {
         if (! $this->hasAltContact()) {

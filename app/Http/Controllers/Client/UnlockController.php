@@ -24,14 +24,20 @@ class UnlockController extends Controller
 
     public function find(Request $request): RedirectResponse
     {
-        $request->validate(['account_number' => ['required', 'string']]);
+        $request->validate(['account_number' => ['required', 'string', 'max:40']]);
 
         $device = $this->devices->findByAccountNumber($request->input('account_number'));
 
-        if (! $device || ! $device->isEnrolled()) {
+        if (! $device) {
             return back()
                 ->withInput()
-                ->withErrors(['account_number' => 'No active device found for that account number.']);
+                ->withErrors(['account_number' => 'No device found for that account number. Check the number on your locked screen and try again.']);
+        }
+
+        if (! $device->isEnrolled()) {
+            return back()
+                ->withInput()
+                ->withErrors(['account_number' => 'We found your device, but it is not set up for payments yet. Please call support to finish setup.']);
         }
 
         return redirect()->route('portal.summary', $device);
@@ -45,7 +51,12 @@ class UnlockController extends Controller
 
         $device->load(['client', 'plan']);
 
-        return view('client.summary', ['device' => $device]);
+        $lastCode = $device->unlockCodes()
+            ->where('expires_at', '>', now())
+            ->latest()
+            ->first();
+
+        return view('client.summary', ['device' => $device, 'lastCode' => $lastCode]);
     }
 
     public function payment(Device $device): View|RedirectResponse

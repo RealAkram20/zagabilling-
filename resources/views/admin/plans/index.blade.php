@@ -20,7 +20,7 @@
                 <div class="px-5 py-4 flex items-center gap-4 flex-wrap">
                     <div class="flex-1 min-w-[160px]">
                         <div class="text-[15px] font-semibold">{{ $plan->name }}</div>
-                        <div class="text-[12.5px] text-[#787E88] mt-0.5">{{ $plan->term_months }} installments · {{ $plan->cadenceLabel() }} · <span class="tnum">{{ rtrim(rtrim(number_format((float) $plan->deposit_percentage, 2), '0'), '.') }}%</span> deposit</div>
+                        <div class="text-[12.5px] text-[#787E88] mt-0.5">{{ $plan->term_months }} installments · {{ $plan->cadenceLabel() }} · <span class="tnum">{{ rtrim(rtrim(number_format((float) $plan->deposit_percentage, 2), '0'), '.') }}%</span> deposit · {{ $plan->grace_days > 0 ? $plan->grace_days . '-day grace' : 'no grace' }}</div>
                     </div>
                     <div class="w-px h-9 bg-[#EEF0F3] hidden sm:block"></div>
                     <div class="text-center">
@@ -46,7 +46,7 @@
 
                 @can('manage-plans')
                     <form x-show="editing" x-cloak method="POST" action="{{ route('admin.plans.update', $plan) }}"
-                          class="px-5 pb-5 pt-1 border-t border-[#EEF0F3] space-y-3" x-data="{ cadence: '{{ $plan->cadence }}' }">
+                          class="px-5 pb-5 pt-1 border-t border-[#EEF0F3] space-y-3" x-data="{ cadence: '{{ $plan->cadence }}', grace: {{ $plan->grace_days > 0 ? 'true' : 'false' }} }">
                         @csrf
                         @method('PATCH')
                         <input name="name" value="{{ $plan->name }}" required placeholder="Plan name"
@@ -74,6 +74,19 @@
                                 @endforeach
                             </div>
                         </div>
+                        <div>
+                            <div class="text-[11.5px] font-medium text-[#565b64] mb-1.5">Grace period</div>
+                            <input type="hidden" name="grace_enabled" :value="grace ? 1 : 0">
+                            <div class="grid grid-cols-2 gap-2 items-center">
+                                <button type="button" @click="grace = !grace"
+                                        class="h-9 rounded-lg text-[12.5px] font-medium border transition"
+                                        :class="grace ? 'bg-brand-50 text-brand border-brand-100' : 'bg-[#FBFBFC] text-[#787E88] border-[#E4E6EB]'"
+                                        x-text="grace ? 'Enabled' : 'Disabled'"></button>
+                                <input name="grace_days" type="number" min="1" max="60" value="{{ $plan->grace_days ?: 3 }}" x-show="grace"
+                                       class="w-full h-9 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] tnum outline-none focus:border-brand" placeholder="Days">
+                            </div>
+                            <p x-show="grace" class="text-[11px] text-[#9AA0AA] mt-1">Days after the due date before the device locks.</p>
+                        </div>
                         <div class="flex items-center gap-2">
                             <button class="h-10 px-4 rounded-lg bg-brand text-white text-[13px] font-semibold shadow-[0_1px_3px_rgba(75,69,199,.35)]">Save changes</button>
                             <button type="button" @click="editing=false" class="h-10 px-4 rounded-lg border border-[#E4E6EB] bg-white text-[13px] font-medium text-[#4A4F58]">Cancel</button>
@@ -91,7 +104,7 @@
     <div class="bg-white border border-[#E9EBEF] rounded-[14px] p-5 shadow-[0_1px_2px_rgba(16,20,28,.03)] h-fit">
         <div class="text-[14.5px] font-semibold">Create plan</div>
         <div class="text-[12px] text-[#8A909A] mb-4">Set the number of installments and the required deposit.</div>
-        <form method="POST" action="{{ route('admin.plans.store') }}" class="space-y-3" x-data="{ cadence: '{{ old('cadence', 'monthly') }}' }">
+        <form method="POST" action="{{ route('admin.plans.store') }}" class="space-y-3" x-data="{ cadence: '{{ old('cadence', 'monthly') }}', grace: {{ old('grace_enabled') ? 'true' : 'false' }} }">
             @csrf
             <input name="name" value="{{ old('name') }}" placeholder="e.g. 24-month Standard" required
                    class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] outline-none focus:border-brand">
@@ -117,6 +130,19 @@
                                 :class="cadence==='{{ $value }}' ? 'bg-brand-50 text-brand border-brand-100' : 'bg-[#FBFBFC] text-[#787E88] border-[#E4E6EB]'">{{ $label }}</button>
                     @endforeach
                 </div>
+            </div>
+            <div>
+                <div class="text-[11.5px] font-medium text-[#565b64] mb-1.5">Grace period</div>
+                <input type="hidden" name="grace_enabled" :value="grace ? 1 : 0">
+                <div class="grid grid-cols-2 gap-2 items-center">
+                    <button type="button" @click="grace = !grace"
+                            class="h-9 rounded-lg text-[12.5px] font-medium border transition"
+                            :class="grace ? 'bg-brand-50 text-brand border-brand-100' : 'bg-[#FBFBFC] text-[#787E88] border-[#E4E6EB]'"
+                            x-text="grace ? 'Enabled' : 'Disabled'"></button>
+                    <input name="grace_days" type="number" min="1" max="60" value="{{ old('grace_days', 3) }}" x-show="grace"
+                           class="w-full h-9 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] tnum outline-none focus:border-brand" placeholder="Days">
+                </div>
+                <p x-show="grace" class="text-[11px] text-[#9AA0AA] mt-1">Days after the due date before the device locks.</p>
             </div>
             <button class="w-full h-10 rounded-lg bg-brand text-white text-[13px] font-semibold shadow-[0_1px_3px_rgba(75,69,199,.35)]">Create plan</button>
         </form>

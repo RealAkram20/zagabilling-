@@ -24,8 +24,9 @@
     <form method="POST" action="{{ route('portal.find') }}">
         @csrf
         <label class="block text-[12px] font-medium text-[#565b64] mb-1.5">Device account number</label>
-        <input name="account_number" value="{{ old('account_number') }}" placeholder="ZG-40000" required autofocus
-               class="w-full h-[52px] border border-[#E4E6EB] rounded-[11px] px-3 text-[20px] font-semibold tnum tracking-[0.08em] text-center outline-none focus:border-brand mb-4">
+        <input name="account_number" value="{{ old('account_number') }}" placeholder="ZG-XXXXX-XXXXX" required autofocus
+               autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40"
+               class="w-full h-[52px] border border-[#E4E6EB] rounded-[11px] px-3 text-[20px] font-semibold tnum tracking-[0.08em] text-center uppercase outline-none focus:border-brand mb-4">
         <button class="w-full h-12 rounded-[11px] bg-brand text-white text-[13px] font-semibold shadow-[0_2px_8px_rgba(75,69,199,.32)]">Continue</button>
     </form>
 </div>

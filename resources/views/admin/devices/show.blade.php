@@ -59,6 +59,18 @@
                 <div><div class="text-[11px] text-[#9AA0AA]">Client</div><div class="text-[13px] font-medium mt-0.5">{{ $device->client->name ?? 'Unassigned' }}</div></div>
                 <div><div class="text-[11px] text-[#9AA0AA]">Plan</div><div class="text-[13px] font-medium mt-0.5">{{ $device->plan->name ?? '—' }}</div></div>
                 <div><div class="text-[11px] text-[#9AA0AA]">Enrolled</div><div class="text-[13px] font-medium mt-0.5 tnum">{{ $device->activated_at?->format('M j, Y') ?? '—' }}</div></div>
+                <div>
+                    <div class="text-[11px] text-[#9AA0AA]">Renews / Due</div>
+                    @if ($device->next_due_at)
+                        @php $dueTone = in_array($device->status, ['overdue', 'locked'], true) ? 'text-[#B23A30]' : ($device->status === 'grace' ? 'text-[#A05A00]' : 'text-[#1A1D23]'); @endphp
+                        <div class="text-[13px] font-medium mt-0.5 tnum {{ $dueTone }}">
+                            {{ $device->next_due_at->format('M j, Y') }}
+                            <span class="text-[11px] font-normal text-[#9AA0AA]">({{ $device->next_due_at->isPast() ? $device->next_due_at->diffForHumans() : 'in ' . $device->next_due_at->diffForHumans(null, true) }})</span>
+                        </div>
+                    @else
+                        <div class="text-[13px] font-medium mt-0.5 text-[#9AA0AA]">— no unlock issued yet</div>
+                    @endif
+                </div>
             </div>
         </div>
         @can('manage-devices')
@@ -77,8 +89,6 @@
 </div>
 
 @if ($device->client)
-    {{-- Who to call. Sits above the plan because when a device is behind, reaching
-         the client is the first thing anyone opening this page needs. --}}
     <div class="bg-white border border-[#E9EBEF] rounded-[14px] p-5 shadow-[0_1px_2px_rgba(16,20,28,.03)] mb-4">
         <div class="flex items-center gap-2 mb-4">
             <x-icon name="phone" class="w-[17px] h-[17px] text-brand" />
@@ -218,9 +228,9 @@
                               planId: '{{ old('plan_id') }}',
                               plans: {!! json_encode($planTerms) !!},
                               get plan() { return this.plans[this.planId] || null; },
-                              get deposit() { return this.plan ? Math.round(this.price * this.plan.deposit / 100) : 0; },
+                              get deposit() { return this.plan ? Math.ceil((this.price * this.plan.deposit / 100) / 100) * 100 : 0; },
                               get financed() { return this.plan ? (this.price - this.deposit) : 0; },
-                              get per() { return (this.plan && this.plan.term) ? Math.round(this.financed / this.plan.term) : 0; }
+                              get per() { return (this.plan && this.plan.term) ? Math.ceil(this.financed / this.plan.term / 100) * 100 : 0; }
                           }">
                         @csrf
                         <div>
@@ -252,13 +262,9 @@
                                 <div class="text-[12px] text-[#787E88]" x-text="plan ? (plan.term + ' payments of ' + zagaMoney(per, 0) + ' · ' + plan.cadence) : ''"></div>
                             </div>
                         </div>
-                        <div>
-                            <label class="block text-[12.5px] font-medium text-[#4A4F58] mb-1.5">First payment due</label>
-                            <input name="next_due_at" type="date" value="{{ old('next_due_at') }}"
-                                   class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] outline-none focus:border-brand">
-                        </div>
-                        <div class="flex items-end">
-                            <button class="h-10 px-4 rounded-lg bg-brand text-white text-[13px] font-semibold shadow-[0_1px_3px_rgba(75,69,199,.35)]">Enroll device</button>
+                        <div class="sm:col-span-2 flex items-center justify-between gap-3">
+                            <p class="text-[11.5px] text-[#9AA0AA]">The first due date is set by the plan — the deposit grants the first period, and the first unlock code starts the term.</p>
+                            <button class="h-10 px-4 rounded-lg bg-brand text-white text-[13px] font-semibold shadow-[0_1px_3px_rgba(75,69,199,.35)] flex-none">Enroll device</button>
                         </div>
                     </form>
                 @else
@@ -347,6 +353,35 @@
 
         @can('reveal-provisioning')
         <div class="bg-white border border-[#D8C4E7] rounded-[14px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden"
+             x-data="{ code:'', account:'', loading:false, copied:false,
+                async issue(){ if (! await window.zagaConfirm('Issue the offline enrollment code? It carries the device secret, and typing it into the Zaga app enrolls and immediately locks the device.')) return; this.loading=true;
+                    const r = await fetch('{{ route('admin.devices.offlineEnrollCode', $device) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}, credentials:'same-origin'});
+                    const d = await r.json(); this.code=d.code; this.account=d.account_number; this.loading=false; },
+                copy(){ navigator.clipboard.writeText(this.code); this.copied=true; setTimeout(() => { this.copied=false; }, 1500); } }">
+            <div class="flex items-center justify-between px-[18px] py-3.5 bg-[#F4EEFA] border-b border-[#E4D8F0]">
+                <div class="flex items-center gap-2 text-[13.5px] font-semibold text-[#5B3A8A]"><x-icon name="lock" class="w-4 h-4" sw="1.9" /> Offline enrollment code</div>
+                <span class="text-[10px] font-semibold px-2 py-1 rounded-[5px]" style="color:#5B3A8A;background:#EDE3F7;">SUPER ADMIN</span>
+            </div>
+            <div class="p-[18px] space-y-3">
+                <p class="text-[11.5px] text-[#8A909A]">No internet at the device? Type this code into the Zaga app under <span class="font-medium text-[#5B3A8A]">Enroll device</span> — it enrolls entirely offline. The device locks the moment it enrolls, so <span class="font-medium text-[#5B3A8A]">take an unlock code with you</span>. The account number registered here must match the one the device's app displays — check it before issuing.</p>
+                <div x-show="code" x-cloak>
+                    <div class="text-[11px] text-[#9AA0AA] mb-1">Code — for account <span class="font-mono" x-text="account"></span></div>
+                    <div class="flex items-start gap-2">
+                        <div class="text-[15px] font-mono font-semibold tracking-[.06em] flex-1 break-all" x-text="code"></div>
+                        <button type="button" @click="copy()" class="w-8 h-8 rounded-lg border border-[#E4E6EB] bg-white flex items-center justify-center text-[#787E88] hover:bg-[#FBFBFC] flex-none">
+                            <x-icon name="copy" class="w-3.5 h-3.5" x-show="!copied" /><x-icon name="check" class="w-3.5 h-3.5 text-[#0F7B54]" x-show="copied" x-cloak />
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-[#9AA0AA] mt-1.5">Issuing again shows the same code — it never expires. Each issue is recorded in the audit log.</p>
+                </div>
+                <button @click="issue()" :disabled="loading"
+                        class="w-full flex items-center justify-center gap-2 h-10 rounded-lg border border-[#E4E6EB] bg-white text-[12.5px] font-medium text-[#4A4F58] hover:bg-[#FBFBFC]">
+                    <x-icon name="lock" class="w-4 h-4" sw="1.9" /> <span x-text="loading ? 'Issuing…' : (code ? 'Show the code again' : 'Issue offline enrollment code')"></span>
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white border border-[#D8C4E7] rounded-[14px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden"
              x-data="{ revealed:false, loading:false, secret:'', account:'', copied:'',
                 async reveal(){ if (! await window.zagaConfirm('Reveal the provisioning bundle? This exposes the device HMAC secret for burning into the offline client.')) return; this.loading=true;
                     const r = await fetch('{{ route('admin.devices.provisioning', $device) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}, credentials:'same-origin'});
@@ -381,6 +416,14 @@
                     <x-icon name="eye" class="w-4 h-4" sw="1.9" /> <span x-text="loading ? 'Revealing…' : 'Reveal provisioning bundle'"></span>
                 </button>
                 <p x-show="revealed" x-cloak class="text-[11px] text-[#9AA0AA]">Reveal was recorded in the audit log.</p>
+
+                <div class="pt-3 border-t border-[#EFE7F7]">
+                    <p class="text-[11.5px] text-[#8A909A] mb-2">No internet at the device? Download the bundle to a USB stick and use <span class="font-medium text-[#5B3A8A]">Provision offline</span> in the Zaga app. The device locks on provisioning, so take an unlock code with you.</p>
+                    <a href="{{ route('admin.devices.provisioning.export', $device) }}"
+                       class="w-full flex items-center justify-center gap-2 h-10 rounded-lg border border-[#D8C4E7] bg-white text-[12.5px] font-medium text-[#5B3A8A] hover:bg-[#FBF8FE]">
+                        <x-icon name="download" class="w-4 h-4" sw="1.9" /> Download bundle file
+                    </a>
+                </div>
             </div>
         </div>
         @endcan

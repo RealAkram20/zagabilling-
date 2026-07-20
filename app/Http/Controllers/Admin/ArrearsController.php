@@ -15,7 +15,6 @@ class ArrearsController extends Controller
 
     public function index(): View
     {
-        // Worst first: whoever has been behind longest is who an admin should call.
         $devices = $this->billing->behind()
             ->map(function (Device $device) {
                 $device->days_past_due = $this->billing->daysPastDue($device);

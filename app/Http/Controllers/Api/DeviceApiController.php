@@ -20,7 +20,6 @@ class DeviceApiController extends Controller
         $data = $request->validate([
             'code' => 'required|string',
             'agent_version' => 'nullable|string',
-            // Reported by the client from its own firmware (SMBIOS).
             'serial' => 'nullable|string|max:120',
             'model' => 'nullable|string|max:255',
             'manufacturer' => 'nullable|string|max:255',
@@ -35,10 +34,6 @@ class DeviceApiController extends Controller
             return response()->json(['message' => 'Invalid or expired enrollment code.'], 422);
         }
 
-        // Enrolling arms the lock, and a device with no unlock token yet is locked from
-        // the moment it arms. The only token a device can ever be given is the one
-        // issued when it goes on a plan, so enrolling before that would lock the
-        // machine with no code in existence to open it again. Refuse instead.
         if (! $device->isEnrolled()) {
             return response()->json([
                 'message' => "Device {$device->account_number} is not on a payment plan yet. "
@@ -46,9 +41,6 @@ class DeviceApiController extends Controller
             ], 422);
         }
 
-        // The machine knows what it is better than whoever typed the record, so its
-        // firmware wins. Refuse only when the serial already belongs to a different
-        // device, which would otherwise break the unique index.
         $reported = $this->reportedHardware($data);
 
         if (isset($reported['serial'])) {
@@ -70,10 +62,6 @@ class DeviceApiController extends Controller
             'agent_version' => $data['agent_version'] ?? $device->agent_version,
         ])->save();
 
-        // A device holds exactly one API token. Enrolling again issues a fresh one, so
-        // the previous must stop working — otherwise every re-enrollment leaves another
-        // live credential behind, and a token captured from a machine that has since
-        // been re-enrolled would still check in and pull unlock codes.
         $device->tokens()->delete();
 
         $token = $device->createToken('device:' . $device->account_number)->plainTextToken;
@@ -93,13 +81,11 @@ class DeviceApiController extends Controller
             'serial' => $device->serial,
             'model' => $device->model,
             'manufacturer' => $device->manufacturer,
-            // The friendly label an operator gave the unit, falling back to the
-            // machine's own hostname so the lock screen always has something to show.
+            'grace_days' => (int) ($device->plan?->grace_days ?? 0),
             'name' => $device->name ?: $device->hostname,
         ]);
     }
 
-    // Firmware fields the client reported, keeping only the ones it actually knows.
     private function reportedHardware(array $data): array
     {
         $reported = [];
@@ -132,6 +118,9 @@ class DeviceApiController extends Controller
         return response()->json([
             'account_number' => $device->account_number,
             'status' => $device->status,
+            // Repeated on every check-in so a later plan change still reaches
+            // devices that enrolled long ago.
+            'grace_days' => (int) ($device->plan?->grace_days ?? 0),
             'server_time' => now()->toIso8601String(),
         ]);
     }

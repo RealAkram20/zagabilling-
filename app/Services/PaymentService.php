@@ -159,21 +159,13 @@ class PaymentService
 
             $device = $payment->device;
             $installments = max((int) $payment->installments_count, 1);
-            $cadenceDays = $device->plan?->cadenceDays() ?? 30;
 
             $device->decrement('balance', (float) $payment->amount);
             if ((float) $device->balance < 0) {
                 $device->update(['balance' => 0]);
             }
 
-            $base = $device->next_due_at && $device->next_due_at->isFuture()
-                ? $device->next_due_at->copy()
-                : now();
-
-            $device->update([
-                'status' => Device::STATUS_ACTIVE,
-                'next_due_at' => $base->addDays($installments * $cadenceDays),
-            ]);
+            $device->update(['status' => Device::STATUS_ACTIVE]);
 
             $this->auditLogger->record(
                 'payment.verified',

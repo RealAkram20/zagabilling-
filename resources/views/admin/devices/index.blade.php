@@ -80,8 +80,6 @@
     <div class="bg-white border border-[#E9EBEF] rounded-[14px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden">
         <div class="overflow-x-auto">
             <div class="min-w-[860px]">
-                {{-- Written out in full rather than interpolated: Tailwind only emits a
-                     class it can see literally in the source. --}}
                 @php
                     $cols = $canManage
                         ? 'grid-cols-[28px_1.1fr_1.1fr_1.3fr_1fr_0.95fr_0.9fr_0.9fr]'
@@ -99,7 +97,6 @@
                        class="grid {{ $cols }} gap-3.5 px-5 py-3.5 text-[13px] items-center border-b border-[#F4F5F7] last:border-0 hover:bg-[#FBFAFF] transition"
                        @if ($canManage) :class="selected.includes({{ $device->id }}) ? 'bg-[#FBFAFF]' : ''" @endif>
                         @if ($canManage)
-                            {{-- The row is a link, so the checkbox has to stop the click from navigating. --}}
                             <span @click.stop.prevent>
                                 <input type="checkbox" value="{{ $device->id }}" x-model.number="selected" @click.stop class="rounded border-[#D8DBE0] w-4 h-4">
                             </span>

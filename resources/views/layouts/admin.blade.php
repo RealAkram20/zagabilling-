@@ -41,8 +41,9 @@
     <script>
         window.zagaCurrencyPrefix = @json($currencyPrefix ?? 'KSh ');
         window.zagaMoney = function (n, d) {
-            d = (d === undefined) ? 2 : d;
-            return window.zagaCurrencyPrefix + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+            n = Number(n || 0);
+            if (d === undefined) d = (n % 1 === 0) ? 0 : 2;
+            return window.zagaCurrencyPrefix + n.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
         };
     </script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>

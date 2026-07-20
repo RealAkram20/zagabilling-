@@ -61,7 +61,6 @@ class ClientController extends Controller
         $data = $request->validate([
             'device_id' => ['required', Rule::exists('devices', 'id')->whereNull('client_id')],
             'plan_id' => ['required', 'exists:plans,id'],
-            'first_installment_days' => ['nullable', 'integer', 'min:0', 'max:365'],
         ]);
 
         $device = Device::findOrFail($data['device_id']);
@@ -70,7 +69,6 @@ class ClientController extends Controller
         $code = $deviceService->enroll($device, [
             'client_id' => $client->id,
             'plan_id' => $plan->id,
-            'next_due_at' => now()->addDays((int) ($data['first_installment_days'] ?? 30)),
         ]);
 
         return redirect()
@@ -85,9 +83,6 @@ class ClientController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:clients,email'],
             'phone' => ['required', 'string', 'max:40'],
-            // The second person to call when the client's own phone is off. Optional
-            // throughout — an operator can skip it — but the number is what makes it
-            // worth having, so a name without one is rejected rather than stored.
             'alt_contact_name' => ['nullable', 'string', 'max:255'],
             'alt_contact_phone' => ['nullable', 'string', 'max:40', 'required_with:alt_contact_name'],
             'alt_contact_relationship' => ['nullable', 'string', 'max:60'],
@@ -95,7 +90,6 @@ class ClientController extends Controller
             'address' => ['required', 'string', 'max:1000'],
             'device_id' => ['nullable', Rule::exists('devices', 'id')->whereNull('client_id')],
             'plan_id' => ['nullable', 'required_with:device_id', 'exists:plans,id'],
-            'first_installment_days' => ['nullable', 'integer', 'min:0', 'max:365'],
             'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
@@ -134,7 +128,6 @@ class ClientController extends Controller
                 $code = $deviceService->enroll($device, [
                     'client_id' => $client->id,
                     'plan_id' => $plan->id,
-                    'next_due_at' => now()->addDays((int) ($data['first_installment_days'] ?? 30)),
                 ]);
 
                 $enrolledDevice = $device;

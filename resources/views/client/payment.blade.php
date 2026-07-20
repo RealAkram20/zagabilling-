@@ -7,14 +7,18 @@
     $remaining = max((int) $device->progress()['remaining'], 1);
     $label = $device->plan->periodLabel();
     $cadenceDays = $device->plan->cadenceDays();
+    $dueBase = $device->next_due_at && $device->next_due_at->isFuture()
+        ? $device->next_due_at
+        : now();
 @endphp
 
 @section('content')
 @include('client._dots', ['active' => 3])
 
 <div class="bg-white border border-[#E9EBEF] rounded-[16px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden"
-     x-data="{ periods: 1, per: {{ $per }}, max: {{ $remaining }},
-         get amount() { return Math.round(this.per * this.periods * 100) / 100; } }">
+     x-data="{ periods: 1, per: {{ $per }}, max: {{ $remaining }}, dueBase: {{ $dueBase->timestamp * 1000 }}, cad: {{ $cadenceDays }},
+         get amount() { return Math.round(this.per * this.periods * 100) / 100; },
+         get paidThrough() { return new Date(this.dueBase + this.periods * this.cad * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); } }">
     <div class="flex items-center justify-between px-5 py-4 bg-[#FBFAFF] border-b border-[#EEF0F3]">
         <span class="text-[13px] text-[#787E88]">Paying installment {{ $device->progress()['current'] }}</span>
         <span class="tnum text-[19px] font-bold" x-text="zagaMoney(amount)"></span>
@@ -35,7 +39,7 @@
                     <div class="text-[11px] text-[#9AA0AA]"><span x-text="periods"></span> × {{ money($per) }} / {{ $label }}</div>
                 </div>
             </div>
-            <p class="text-[11.5px] text-[#9AA0AA] mt-2">Keeps your device unlocked for <span x-text="periods * {{ $cadenceDays }}"></span> more days.</p>
+            <p class="text-[11.5px] text-[#9AA0AA] mt-2">Keeps your device unlocked through <span class="font-semibold text-[#565b64]" x-text="paidThrough"></span> (<span x-text="periods * {{ $cadenceDays }}"></span> days added to your current due date).</p>
         </div>
 
         <button class="w-full h-12 rounded-[11px] bg-brand text-white text-[13px] font-semibold shadow-[0_2px_8px_rgba(75,69,199,.32)] flex items-center justify-center gap-2">

@@ -10,9 +10,9 @@
         planId: '', plans: window.zagaPlans || {},
         get plan() { return this.plans[this.planId] || null; },
         get price() { return this.picked ? Number(this.picked.price || 0) : 0; },
-        get deposit() { return this.plan ? Math.round(this.price * this.plan.deposit / 100) : 0; },
+        get deposit() { return this.plan ? Math.ceil((this.price * this.plan.deposit / 100) / 100) * 100 : 0; },
         get financed() { return this.plan ? (this.price - this.deposit) : 0; },
-        get per() { return (this.plan && this.plan.term) ? Math.round(this.financed / this.plan.term) : 0; },
+        get per() { return (this.plan && this.plan.term) ? Math.ceil(this.financed / this.plan.term / 100) * 100 : 0; },
         searchDevices() { clearTimeout(this.timer); const q = this.dq;
             this.timer = setTimeout(async () => {
                 if (q.trim().length < 1) { this.results = []; return; }
@@ -137,15 +137,13 @@
                     </div>
                     <input type="hidden" name="device_id" :value="picked ? picked.id : ''">
 
-                    <div x-show="picked" x-cloak class="grid grid-cols-2 gap-2 mb-2">
-                        <select name="plan_id" x-model="planId" :required="picked" class="h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-2.5 text-[13px] outline-none focus:border-brand">
+                    <div x-show="picked" x-cloak class="mb-2">
+                        <select name="plan_id" x-model="planId" :required="picked" class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-2.5 text-[13px] outline-none focus:border-brand">
                             <option value="">Select plan</option>
                             @foreach ($plans as $plan)
                                 <option value="{{ $plan->id }}">{{ $plan->name }} — {{ $plan->term_months }}× · {{ rtrim(rtrim(number_format((float) $plan->deposit_percentage, 2), '0'), '.') }}% deposit</option>
                             @endforeach
                         </select>
-                        <input name="first_installment_days" type="number" min="0" max="365" value="30" placeholder="Days to first payment"
-                               class="h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] tnum outline-none focus:border-brand">
                     </div>
 
                     <div x-show="picked && plan" x-cloak class="rounded-lg border border-[#EEF0F3] p-3 mb-2">

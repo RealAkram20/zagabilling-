@@ -16,8 +16,14 @@ if (! function_exists('currency_prefix')) {
 }
 
 if (! function_exists('money')) {
-    function money($amount, int $decimals = 2): string
+    function money($amount, ?int $decimals = null): string
     {
-        return currency_prefix() . number_format((float) $amount, $decimals);
+        $amount = (float) $amount;
+
+        if ($decimals === null) {
+            $decimals = fmod($amount, 1) == 0.0 ? 0 : 2;
+        }
+
+        return currency_prefix() . number_format($amount, $decimals);
     }
 }

@@ -22,9 +22,9 @@
         planId: '{{ old('plan_id') }}', plans: window.zagaPlans || {},
         get plan() { return this.plans[this.planId] || null; },
         get price() { return this.picked ? Number(this.picked.price || 0) : 0; },
-        get deposit() { return this.plan ? Math.round(this.price * this.plan.deposit / 100) : 0; },
+        get deposit() { return this.plan ? Math.ceil((this.price * this.plan.deposit / 100) / 100) * 100 : 0; },
         get financed() { return this.plan ? (this.price - this.deposit) : 0; },
-        get per() { return (this.plan && this.plan.term) ? Math.round(this.financed / this.plan.term) : 0; },
+        get per() { return (this.plan && this.plan.term) ? Math.ceil(this.financed / this.plan.term / 100) * 100 : 0; },
         searchDevices() { clearTimeout(this.timer); const q = this.dq;
             this.timer = setTimeout(async () => {
                 if (q.trim().length < 1) { this.results = []; return; }
@@ -45,8 +45,6 @@
         @endcan
     </x-page-header>
 
-    {{-- Sort and page size submit on change, so the list is one interaction away from
-         any arrangement rather than a form to fill in. --}}
     <form method="GET" class="flex items-center gap-2.5 mb-3.5 flex-wrap">
         <div class="relative flex-1 min-w-[200px] max-w-sm">
             <x-icon name="search" class="w-[15px] h-[15px] text-[#A6ABB4] absolute left-3 top-1/2 -translate-y-1/2" sw="2" />
@@ -121,7 +119,6 @@
                             <input type="checkbox" value="{{ $client->id }}" x-model.number="selected" @click.stop class="rounded border-[#D8DBE0] w-4 h-4">
                         @endif
                         <span class="flex items-center gap-2.5 min-w-0"><x-avatar :name="$client->name" :image="$client->avatarUrl()" :size="30" :variant="$variant" /><span class="font-medium truncate">{{ $client->name }}</span></span>
-                        {{-- Phone leads: it is what anyone scanning this list is going to use. --}}
                         <span class="min-w-0">
                             <span class="block tnum truncate">{{ $client->phone ?? '—' }}</span>
                             @if ($client->email)
@@ -139,8 +136,6 @@
         </div>
     </div>
 
-    {{-- The count sits outside links(), which renders nothing at all on a single page.
-         With a large list, knowing where you are is the point. --}}
     <div class="mt-4 flex items-center justify-between gap-3 flex-wrap">
         <span class="text-[12.5px] text-[#787E88]">
             @if ($clients->total() > 0)
@@ -153,7 +148,6 @@
         <div>{{ $clients->links() }}</div>
     </div>
 
-    {{-- Detail drawer --}}
     <div x-show="open" x-cloak class="fixed inset-0 z-50">
         <div x-show="open" x-transition.opacity @click="open=false" class="absolute inset-0 bg-[rgba(20,22,28,.28)]"></div>
         <div x-show="open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
@@ -167,7 +161,6 @@
         </div>
     </div>
 
-    {{-- Add-client drawer --}}
     @can('manage-clients')
     <div x-show="addOpen" x-cloak class="fixed inset-0 z-50">
         <div x-show="addOpen" x-transition.opacity @click="addOpen=false" class="absolute inset-0 bg-[rgba(20,22,28,.28)]"></div>
@@ -220,10 +213,6 @@
                     <textarea name="address" rows="2" required class="w-full border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 py-2 text-[13px] outline-none focus:border-brand">{{ old('address') }}</textarea>
                 </div>
 
-                {{-- Someone to reach when the client's own phone is off. Optional, and
-                     collapsed by default so it never slows down a routine sign-up —
-                     but it reopens on validation errors so a half-filled entry is not
-                     silently hidden. --}}
                 <div class="rounded-xl border border-[#E9EBEF] p-4"
                      x-data="{ open: {{ $errors->has('alt_contact_name') || $errors->has('alt_contact_phone') || old('alt_contact_phone') ? 'true' : 'false' }} }">
                     <div class="flex items-start justify-between gap-3">
@@ -288,15 +277,13 @@
                     </div>
                     <input type="hidden" name="device_id" :value="picked ? picked.id : ''">
 
-                    <div x-show="picked" x-cloak class="grid grid-cols-2 gap-2 mt-3">
-                        <select name="plan_id" x-model="planId" :required="picked" class="h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-2.5 text-[13px] outline-none focus:border-brand">
+                    <div x-show="picked" x-cloak class="mt-3">
+                        <select name="plan_id" x-model="planId" :required="picked" class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-2.5 text-[13px] outline-none focus:border-brand">
                             <option value="">Select plan</option>
                             @foreach ($plans as $plan)
                                 <option value="{{ $plan->id }}">{{ $plan->name }} — {{ $plan->term_months }}× · {{ rtrim(rtrim(number_format((float) $plan->deposit_percentage, 2), '0'), '.') }}% deposit</option>
                             @endforeach
                         </select>
-                        <input name="first_installment_days" type="number" min="0" max="365" value="{{ old('first_installment_days', 30) }}" placeholder="Days to first payment"
-                               class="h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] tnum outline-none focus:border-brand">
                     </div>
 
                     <div x-show="picked && plan" x-cloak class="rounded-lg border border-[#EEF0F3] p-3 mt-3">

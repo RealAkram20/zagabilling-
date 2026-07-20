@@ -45,6 +45,8 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::post('/devices/{device}/enroll-code', [DeviceController::class, 'issueEnrollCode'])->middleware('can:manage-devices')->name('devices.enrollCode');
     Route::post('/devices/{device}/vault', [DeviceController::class, 'revealVault'])->middleware('can:reveal-vault')->name('devices.vault');
     Route::post('/devices/{device}/provisioning', [DeviceController::class, 'revealProvisioning'])->middleware('can:reveal-provisioning')->name('devices.provisioning');
+    Route::get('/devices/{device}/provisioning/export', [DeviceController::class, 'exportProvisioning'])->middleware('can:reveal-provisioning')->name('devices.provisioning.export');
+    Route::post('/devices/{device}/offline-enroll-code', [DeviceController::class, 'offlineEnrollCode'])->middleware('can:reveal-provisioning')->name('devices.offlineEnrollCode');
     Route::post('/devices/{device}/uninstall-auth', [DeviceController::class, 'uninstallAuthorization'])->middleware('can:manage-devices')->name('devices.uninstallAuth');
 
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
@@ -96,8 +98,6 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     });
 });
 
-// Legacy /unlock paths. PesaPal holds a registered IPN/callback URL under this
-// prefix, so these must keep resolving even though the portal now lives at root.
 Route::prefix('unlock')->group(function () {
     Route::get('/callback', [UnlockController::class, 'callback']);
     Route::match(['get', 'post'], '/ipn', [UnlockController::class, 'ipn']);
@@ -108,7 +108,7 @@ Route::prefix('unlock')->group(function () {
 
 Route::name('portal.')->group(function () {
     Route::get('/', [UnlockController::class, 'lookup'])->name('lookup');
-    Route::post('/', [UnlockController::class, 'find'])->name('find');
+    Route::post('/find', [UnlockController::class, 'find'])->middleware('throttle:15,1')->name('find');
     Route::get('/callback', [UnlockController::class, 'callback'])->name('callback');
     Route::match(['get', 'post'], '/ipn', [UnlockController::class, 'ipn'])->name('ipn');
     Route::get('/{device}/summary', [UnlockController::class, 'summary'])->name('summary');

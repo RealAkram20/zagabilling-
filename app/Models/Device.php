@@ -102,11 +102,13 @@ class Device extends Model
         return $this->client_id !== null && $this->plan_id !== null;
     }
 
+    public const CASH_ROUNDING = 100;
+
     public function depositAmount(): float
     {
         $percentage = (float) ($this->plan?->deposit_percentage ?? 0);
 
-        return round((float) $this->price * $percentage / 100, 2);
+        return self::roundToCash((float) $this->price * $percentage / 100);
     }
 
     public function financedAmount(): float
@@ -118,7 +120,12 @@ class Device extends Model
     {
         $term = (int) ($this->plan?->term_months ?? 0);
 
-        return $term > 0 ? round($this->financedAmount() / $term, 2) : 0.0;
+        return $term > 0 ? self::roundToCash($this->financedAmount() / $term) : 0.0;
+    }
+
+    public static function roundToCash(float $amount): float
+    {
+        return ceil($amount / self::CASH_ROUNDING) * self::CASH_ROUNDING;
     }
 
     public function progress(): array
