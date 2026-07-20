@@ -79,12 +79,14 @@
             <form method="POST" action="{{ route('admin.account.twoFactor') }}" class="flex items-center justify-between gap-4">
                 @csrf
                 @method('PATCH')
+                <input type="hidden" name="current_password">
                 <div>
                     <div class="text-[13px] font-medium">Require an email code at sign-in</div>
                     <div class="text-[11.5px] text-[#9AA0AA] mt-0.5">Recommended for accounts with elevated access.</div>
                 </div>
                 <div class="flex items-center gap-3">
-                    <x-toggle name="two_factor_enabled" :checked="$user->two_factor_enabled" onchange="this.form.submit()" />
+                    <x-toggle name="two_factor_enabled" :checked="$user->two_factor_enabled"
+                              onchange="const p=window.prompt('Enter your password to change two-factor settings'); if(!p){this.checked=!this.checked;return;} this.form.querySelector('input[name=current_password]').value=p; this.form.submit();" />
                 </div>
             </form>
         @endif

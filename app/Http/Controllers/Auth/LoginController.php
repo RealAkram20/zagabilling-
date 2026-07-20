@@ -9,6 +9,9 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
 {
@@ -24,11 +27,27 @@ class LoginController extends Controller
             'password' => ['required'],
         ]);
 
+        // Lock out per email+IP (in addition to the per-IP route throttle) so a
+        // single account can't be brute-forced from one host.
+        $throttleKey = Str::lower($credentials['email']) . '|' . $request->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            throw ValidationException::withMessages([
+                'email' => "Too many login attempts. Please try again in {$seconds} seconds.",
+            ]);
+        }
+
         if (! Auth::validate($credentials)) {
+            RateLimiter::hit($throttleKey, 60);
+
             return back()
                 ->withInput($request->only('email'))
                 ->withErrors(['email' => 'These credentials do not match our records.']);
         }
+
+        RateLimiter::clear($throttleKey);
 
         $user = User::where('email', $credentials['email'])->first();
 

@@ -48,11 +48,17 @@ class PaymentService
         return ['payment' => $payment, 'error' => $order['error']['message'] ?? 'Unable to start the payment. Please try again.'];
     }
 
-    public function verifyByTracking(string $orderTrackingId): ?Payment
+    public function verifyByTracking(string $orderTrackingId, ?string $expectedReference = null): ?Payment
     {
         $payment = $this->payments->findByTracking($orderTrackingId);
 
         if (! $payment || $payment->isPaid()) {
+            return $payment;
+        }
+
+        // When the notification carries a merchant reference, it must match the
+        // payment resolved by the tracking id — reject mismatched notifications.
+        if ($expectedReference !== null && ! hash_equals((string) $payment->merchant_reference, $expectedReference)) {
             return $payment;
         }
 

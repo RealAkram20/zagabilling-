@@ -76,4 +76,28 @@ class AdminSecurityTest extends TestCase
             ->assertOk()
             ->assertJsonStructure(['token', 'account_number']);
     }
+
+    /** M5 — an SMTP host outside the allowlist is rejected. */
+    public function test_smtp_host_outside_the_allowlist_is_rejected(): void
+    {
+        config(['mail.allowed_hosts' => ['smtp.approved.example']]);
+
+        $this->actingAs($this->superAdmin())
+            ->patch(route('admin.settings.mail'), ['host' => 'smtp.attacker.example', 'port' => 587])
+            ->assertSessionHasErrors('host');
+
+        $this->actingAs($this->superAdmin())
+            ->patch(route('admin.settings.mail'), ['host' => 'smtp.approved.example', 'port' => 587])
+            ->assertSessionHasNoErrors();
+    }
+
+    /** M-read — the security audit log is not visible to the lowest (support) role. */
+    public function test_support_role_cannot_view_the_audit_log(): void
+    {
+        $support = User::where('role', User::ROLE_SUPPORT)->firstOrFail();
+        $operator = User::where('role', User::ROLE_OPERATOR)->firstOrFail();
+
+        $this->actingAs($support)->get(route('admin.audit.index'))->assertForbidden();
+        $this->actingAs($operator)->get(route('admin.audit.index'))->assertOk();
+    }
 }

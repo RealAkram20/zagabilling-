@@ -13,7 +13,7 @@
         ],
         'System' => [
             ['admin.notifications.index', 'Notifications', 'bell', 'admin.notifications.*', null],
-            ['admin.audit.index', 'Audit log', 'audit', 'admin.audit.*', null],
+            ['admin.audit.index', 'Audit log', 'audit', 'admin.audit.*', 'view-audit'],
             ['admin.settings', 'Settings', 'settings', 'admin.settings', 'manage-settings'],
         ],
     ];

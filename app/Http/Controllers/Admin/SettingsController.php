@@ -134,6 +134,14 @@ class SettingsController extends Controller
             'from_name' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $allowed = config('mail.allowed_hosts', []);
+        if (! empty($allowed) && ! empty($data['host'])
+            && ! in_array(strtolower($data['host']), array_map('strtolower', $allowed), true)) {
+            return back()->withInput()->withErrors([
+                'host' => 'That SMTP host is not on the approved list. Contact your administrator.',
+            ]);
+        }
+
         $this->settings->setMail($data);
 
         // Rerouting outbound mail is security-sensitive — record host + actor,

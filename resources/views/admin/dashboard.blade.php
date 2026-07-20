@@ -136,7 +136,9 @@
     <div class="bg-white border border-[#E9EBEF] rounded-[14px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden">
         <div class="px-5 py-4 border-b border-[#EEF0F3] flex items-center justify-between">
             <div class="text-[14.5px] font-semibold">Unlock codes issued</div>
-            <a href="{{ route('admin.audit.index') }}" class="text-[12px] text-brand font-medium">View all</a>
+            @can('view-audit')
+                <a href="{{ route('admin.audit.index') }}" class="text-[12px] text-brand font-medium">View all</a>
+            @endcan
         </div>
         <div class="p-2">
             @forelse ($recentUnlockCodes as $code)

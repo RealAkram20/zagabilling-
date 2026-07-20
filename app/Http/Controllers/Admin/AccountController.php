@@ -69,6 +69,10 @@ class AccountController extends Controller
 
     public function updateTwoFactor(Request $request): RedirectResponse
     {
+        // Changing a security control requires re-entering the password so a
+        // hijacked session cannot silently disable two-factor auth.
+        $request->validate(['current_password' => ['required', 'current_password']]);
+
         auth()->user()->update(['two_factor_enabled' => $request->boolean('two_factor_enabled')]);
 
         return back()->with('status', 'Two-factor preference updated.');

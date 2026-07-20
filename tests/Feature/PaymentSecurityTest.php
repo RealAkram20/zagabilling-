@@ -124,4 +124,18 @@ class PaymentSecurityTest extends TestCase
             'The due date must advance by exactly one cadence, not two.'
         );
     }
+
+    /** IPN — a notification whose merchant reference doesn't match the tracked payment is not processed. */
+    public function test_ipn_with_a_mismatched_merchant_reference_does_not_credit_the_payment(): void
+    {
+        $device = $this->enrolledDevice();
+        $service = app(PaymentService::class);
+
+        $payment = $service->initiate($device->fresh(), 1);
+        $payment->update(['pesapal_tracking_id' => 'TRACK-MISMATCH-1']);
+
+        $result = $service->verifyByTracking('TRACK-MISMATCH-1', 'NOT-THE-REAL-REFERENCE');
+
+        $this->assertFalse($result->isPaid(), 'A mismatched merchant reference must not mark the payment paid.');
+    }
 }

@@ -67,7 +67,7 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
 
     Route::get('/arrears', [ArrearsController::class, 'index'])->name('arrears');
 
-    Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');
+    Route::get('/audit', [AuditLogController::class, 'index'])->middleware('can:view-audit')->name('audit.index');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.readAll');

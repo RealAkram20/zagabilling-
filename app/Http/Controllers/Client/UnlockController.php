@@ -120,9 +120,10 @@ class UnlockController extends Controller
     public function ipn(Request $request, PaymentService $payments): JsonResponse
     {
         $trackingId = $request->input('OrderTrackingId', $request->query('OrderTrackingId'));
+        $reference = $request->input('OrderMerchantReference', $request->query('OrderMerchantReference'));
 
         if ($trackingId) {
-            $payments->verifyByTracking($trackingId);
+            $payments->verifyByTracking($trackingId, $reference ?: null);
         }
 
         return response()->json([
