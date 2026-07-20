@@ -1,3 +1,14 @@
+# No directory listings anywhere under the app root.
+Options -Indexes
+
+# Defense-in-depth: if mod_rewrite is ever disabled and the app root becomes
+# web-accessible, still refuse dotfiles (.env, .env.backup, .git config, ...).
+# The rewrite below is the primary guard; this is the backstop. Scoped to
+# dotfiles only so it can never block legitimate assets under public/.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
