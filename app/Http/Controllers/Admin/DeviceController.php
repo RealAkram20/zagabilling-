@@ -9,10 +9,12 @@ use App\Repositories\DeviceRepository;
 use App\Repositories\PlanRepository;
 use App\Services\DeviceService;
 use App\Services\PaymentService;
+use App\Services\SettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -21,6 +23,7 @@ class DeviceController extends Controller
     public function __construct(
         private DeviceRepository $devices,
         private DeviceService $deviceService,
+        private SettingsService $settings,
     ) {
     }
 
@@ -211,14 +214,53 @@ class DeviceController extends Controller
         );
     }
 
-    public function revealVault(Device $device): JsonResponse
+    public function revealVault(Request $request, Device $device): JsonResponse
     {
+        if ($denied = $this->guardReauth($request)) {
+            return $denied;
+        }
+
         return response()->json($this->deviceService->revealVault($device));
     }
 
-    public function revealProvisioning(Device $device): JsonResponse
+    public function revealProvisioning(Request $request, Device $device): JsonResponse
     {
+        if ($denied = $this->guardReauth($request)) {
+            return $denied;
+        }
+
         return response()->json($this->deviceService->revealProvisioning($device));
+    }
+
+    /**
+     * When the "re-auth before revealing secrets" setting is on, require the
+     * signed-in admin to re-enter their password. This must be enforced here on
+     * the server — a client-side modal alone is bypassed by calling the endpoint
+     * directly.
+     */
+    private function guardReauth(Request $request): ?JsonResponse
+    {
+        if (! $this->settings->security()['vault_reauth']) {
+            return null;
+        }
+
+        $password = (string) $request->input('password', '');
+
+        if ($password === '') {
+            return response()->json([
+                'message' => 'Re-enter your password to reveal this.',
+                'reauth_required' => true,
+            ], 422);
+        }
+
+        if (! Hash::check($password, $request->user()->password)) {
+            return response()->json([
+                'message' => 'That password was incorrect.',
+                'reauth_required' => true,
+            ], 422);
+        }
+
+        return null;
     }
 
     public function offlineEnrollCode(Device $device): JsonResponse

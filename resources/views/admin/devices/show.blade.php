@@ -277,9 +277,13 @@
     <div class="space-y-4">
         <div class="bg-white border border-[#E7C9C4] rounded-[14px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden"
              x-data="{ revealed:false, loading:false, bios:'', recovery:'', copiedBios:false, copiedKey:false,
-                async reveal(){ this.loading=true;
-                    const r = await fetch('{{ route('admin.devices.vault', $device) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}, credentials:'same-origin'});
-                    const d = await r.json(); this.bios=d.bios_password; this.recovery=d.recovery_key; this.revealed=true; this.loading=false; },
+                async reveal(){ this.loading=true; let password='';
+                    for (let attempt=0; attempt<3; attempt++) {
+                        const r = await fetch('{{ route('admin.devices.vault', $device) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json','Content-Type':'application/json'}, credentials:'same-origin', body: password ? JSON.stringify({password}) : null});
+                        if (r.status===422) { const e=await r.json(); if (e.reauth_required) { password=window.prompt(e.message||'Re-enter your password to continue'); if (!password) { this.loading=false; return; } continue; } }
+                        const d = await r.json(); this.bios=d.bios_password; this.recovery=d.recovery_key; this.revealed=true; this.loading=false; return;
+                    }
+                    this.loading=false; },
                 copy(text, which){ navigator.clipboard.writeText(text); this[which]=true; setTimeout(() => { this[which]=false; }, 1500); } }">
             <div class="flex items-center justify-between px-[18px] py-3.5 bg-[#FCF3F1] border-b border-[#F1DDD8]">
                 <div class="flex items-center gap-2 text-[13.5px] font-semibold text-[#8A2B23]"><x-icon name="shield" class="w-4 h-4" sw="1.9" /> Secure vault</div>
@@ -383,9 +387,13 @@
 
         <div class="bg-white border border-[#D8C4E7] rounded-[14px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden"
              x-data="{ revealed:false, loading:false, secret:'', account:'', copied:'',
-                async reveal(){ if (! await window.zagaConfirm('Reveal the provisioning bundle? This exposes the device HMAC secret for burning into the offline client.')) return; this.loading=true;
-                    const r = await fetch('{{ route('admin.devices.provisioning', $device) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}, credentials:'same-origin'});
-                    const d = await r.json(); this.account=d.account_number; this.secret=d.hmac_secret; this.revealed=true; this.loading=false; },
+                async reveal(){ if (! await window.zagaConfirm('Reveal the provisioning bundle? This exposes the device HMAC secret for burning into the offline client.')) return; this.loading=true; let password='';
+                    for (let attempt=0; attempt<3; attempt++) {
+                        const r = await fetch('{{ route('admin.devices.provisioning', $device) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json','Content-Type':'application/json'}, credentials:'same-origin', body: password ? JSON.stringify({password}) : null});
+                        if (r.status===422) { const e=await r.json(); if (e.reauth_required) { password=window.prompt(e.message||'Re-enter your password to continue'); if (!password) { this.loading=false; return; } continue; } }
+                        const d = await r.json(); this.account=d.account_number; this.secret=d.hmac_secret; this.revealed=true; this.loading=false; return;
+                    }
+                    this.loading=false; },
                 copy(text, which){ navigator.clipboard.writeText(text); this.copied=which; setTimeout(() => { this.copied=''; }, 1500); } }">
             <div class="flex items-center justify-between px-[18px] py-3.5 bg-[#F4EEFA] border-b border-[#E4D8F0]">
                 <div class="flex items-center gap-2 text-[13.5px] font-semibold text-[#5B3A8A]"><x-icon name="shield" class="w-4 h-4" sw="1.9" /> Provisioning bundle</div>

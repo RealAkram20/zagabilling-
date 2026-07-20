@@ -46,6 +46,23 @@ class DeviceApiController extends Controller
 
         $reported = $this->reportedHardware($data);
 
+        // Bind enrollment to the hardware it was issued for: if the device was
+        // registered with a known serial, the machine redeeming the code must
+        // present that same serial. Stops a leaked code being used to enroll a
+        // different machine (silent account takeover of the real device).
+        if (filled($device->serial) && isset($reported['serial'])
+            && strcasecmp(trim($device->serial), $reported['serial']) !== 0) {
+            $this->auditLogger->record(
+                'device.enroll_serial_mismatch',
+                "Rejected enrollment for {$device->account_number}: reported serial does not match the registered serial.",
+                $device,
+            );
+
+            return response()->json([
+                'message' => 'This enrollment code is registered to a different device. Contact support.',
+            ], 422);
+        }
+
         if (isset($reported['serial'])) {
             $clash = Device::where('serial', $reported['serial'])
                 ->whereKeyNot($device->getKey())

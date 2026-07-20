@@ -91,9 +91,11 @@ class SettingsController extends Controller
         $data = $request->validate([
             'app_name' => ['required', 'string', 'max:60'],
             'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:5120'],
-            'icon' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'],
-            'favicon' => ['nullable', 'image', 'mimes:png,ico,svg,gif', 'max:1024'],
+            // SVG is intentionally excluded — it can carry executable script and
+            // is served from the public web root.
+            'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:5120'],
+            'icon' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048'],
+            'favicon' => ['nullable', 'image', 'mimes:png,ico,gif', 'max:1024'],
         ]);
 
         $branding = ['app_name' => $data['app_name'], 'primary_color' => $data['primary_color']];
