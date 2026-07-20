@@ -15,7 +15,10 @@ return [
     'guard' => ['web'],
 
 
-    'expiration' => null,
+    // Minutes until a device token expires. Left null by default so existing
+    // offline devices are not cut off, but set SANCTUM_EXPIRATION (e.g. 43200
+    // for 30 days) in production once the device client can re-authenticate.
+    'expiration' => env('SANCTUM_EXPIRATION'),
 
 
     'middleware' => [

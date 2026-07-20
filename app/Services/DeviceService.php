@@ -228,8 +228,10 @@ class DeviceService
 
     private function generateAccountNumber(): string
     {
+        // Non-enumerable: ~4.3 billion values (16^8) instead of a 5-digit space,
+        // so account numbers can't be brute-forced against the public portal.
         do {
-            $accountNumber = 'ZG-' . random_int(10000, 99999);
+            $accountNumber = 'ZG-' . strtoupper(bin2hex(random_bytes(4)));
         } while (Device::where('account_number', $accountNumber)->exists());
 
         return $accountNumber;

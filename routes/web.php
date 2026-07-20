@@ -16,10 +16,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
-    Route::post('/login', [LoginController::class, 'login']);
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
     Route::get('/two-factor', [LoginController::class, 'showTwoFactor'])->name('two-factor.show');
-    Route::post('/two-factor', [LoginController::class, 'verifyTwoFactor'])->name('two-factor.verify');
-    Route::post('/two-factor/resend', [LoginController::class, 'resendTwoFactor'])->name('two-factor.resend');
+    Route::post('/two-factor', [LoginController::class, 'verifyTwoFactor'])->middleware('throttle:6,1')->name('two-factor.verify');
+    Route::post('/two-factor/resend', [LoginController::class, 'resendTwoFactor'])->middleware('throttle:3,10')->name('two-factor.resend');
 });
 
 Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
@@ -111,8 +111,11 @@ Route::name('portal.')->group(function () {
     Route::post('/find', [UnlockController::class, 'find'])->middleware('throttle:15,1')->name('find');
     Route::get('/callback', [UnlockController::class, 'callback'])->name('callback');
     Route::match(['get', 'post'], '/ipn', [UnlockController::class, 'ipn'])->name('ipn');
-    Route::get('/{device}/summary', [UnlockController::class, 'summary'])->name('summary');
-    Route::get('/{device}/payment', [UnlockController::class, 'payment'])->name('payment');
-    Route::post('/{device}/pay', [UnlockController::class, 'pay'])->name('pay');
-    Route::get('/{device}/code', [UnlockController::class, 'code'])->name('code');
+
+    Route::middleware('throttle:20,1')->group(function () {
+        Route::get('/{device}/summary', [UnlockController::class, 'summary'])->name('summary');
+        Route::get('/{device}/payment', [UnlockController::class, 'payment'])->name('payment');
+        Route::post('/{device}/pay', [UnlockController::class, 'pay'])->middleware('throttle:8,1')->name('pay');
+        Route::get('/{device}/code', [UnlockController::class, 'code'])->name('code');
+    });
 });

@@ -11,6 +11,9 @@ use Illuminate\Http\Request;
 
 class DeviceApiController extends Controller
 {
+    private const ABILITY_HEARTBEAT = 'device:heartbeat';
+    private const ABILITY_TOKEN = 'device:token';
+
     public function __construct(private AuditLogger $auditLogger)
     {
     }
@@ -64,7 +67,12 @@ class DeviceApiController extends Controller
 
         $device->tokens()->delete();
 
-        $token = $device->createToken('device:' . $device->account_number)->plainTextToken;
+        // Scope the token to exactly what the offline agent needs — checking in
+        // and pulling its own unlock code — so a leaked token can do nothing more.
+        $token = $device->createToken(
+            'device:' . $device->account_number,
+            [self::ABILITY_HEARTBEAT, self::ABILITY_TOKEN],
+        )->plainTextToken;
 
         $this->auditLogger->record(
             'device.enroll_api',
@@ -104,6 +112,10 @@ class DeviceApiController extends Controller
     {
         $device = $request->user();
 
+        if (! $device->tokenCan(self::ABILITY_HEARTBEAT)) {
+            return response()->json(['message' => 'This token is not permitted to check in.'], 403);
+        }
+
         $data = $request->validate([
             'status' => 'nullable|string',
             'lock_deadline' => 'nullable|integer',
@@ -128,6 +140,10 @@ class DeviceApiController extends Controller
     public function token(Request $request): JsonResponse
     {
         $device = $request->user();
+
+        if (! $device->tokenCan(self::ABILITY_TOKEN)) {
+            return response()->json(['message' => 'This token is not permitted to fetch unlock codes.'], 403);
+        }
 
         $unlockCode = UnlockCode::where('device_id', $device->id)
             ->orderByDesc('id')

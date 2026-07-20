@@ -43,7 +43,7 @@ class UnlockController extends Controller
         return redirect()->route('portal.summary', $device);
     }
 
-    public function summary(Device $device): View|RedirectResponse
+    public function summary(Request $request, Device $device): View|RedirectResponse
     {
         if (! $device->isEnrolled()) {
             return redirect()->route('portal.lookup')->withErrors(['account_number' => 'This device is not active for payments.']);
@@ -51,10 +51,11 @@ class UnlockController extends Controller
 
         $device->load(['client', 'plan']);
 
-        $lastCode = $device->unlockCodes()
-            ->where('expires_at', '>', now())
-            ->latest()
-            ->first();
+        $codeAccessible = $this->hasCodeAccess($request, $device);
+
+        $lastCode = $codeAccessible
+            ? $device->unlockCodes()->where('expires_at', '>', now())->latest()->first()
+            : null;
 
         return view('client.summary', ['device' => $device, 'lastCode' => $lastCode]);
     }
@@ -86,6 +87,8 @@ class UnlockController extends Controller
             return redirect()->route('portal.summary', $device)->withErrors(['payment' => $result['error']]);
         }
 
+        $this->grantCodeAccess($request, $device);
+
         return redirect()->route('portal.code', $device);
     }
 
@@ -100,7 +103,10 @@ class UnlockController extends Controller
         $payment = $payments->verifyByTracking($trackingId);
 
         if ($payment && $payment->isPaid()) {
-            return redirect()->route('portal.code', $payment->loadMissing('device')->device);
+            $device = $payment->loadMissing('device')->device;
+            $this->grantCodeAccess($request, $device);
+
+            return redirect()->route('portal.code', $device);
         }
 
         if ($payment && $payment->device) {
@@ -127,8 +133,14 @@ class UnlockController extends Controller
         ]);
     }
 
-    public function code(Device $device): View
+    public function code(Request $request, Device $device): View|RedirectResponse
     {
+        if (! $this->hasCodeAccess($request, $device)) {
+            return redirect()->route('portal.summary', $device)->withErrors([
+                'account_number' => 'For your security, unlock codes are only shown right after a payment. Complete a payment or contact support to retrieve your code.',
+            ]);
+        }
+
         $device->load('unlockCodes');
         $unlockCode = $device->unlockCodes()->latest()->first();
 
@@ -136,5 +148,27 @@ class UnlockController extends Controller
             'device' => $device,
             'unlockCode' => $unlockCode,
         ]);
+    }
+
+    /**
+     * Mark the current portal session as authorised to view a device's unlock
+     * code. Set only after a payment for that device completes, so the code
+     * page cannot be reached by enumerating account numbers.
+     */
+    private function grantCodeAccess(Request $request, Device $device): void
+    {
+        $request->session()->put($this->codeAccessKey($device), now()->addMinutes(30)->getTimestamp());
+    }
+
+    private function hasCodeAccess(Request $request, Device $device): bool
+    {
+        $expires = $request->session()->get($this->codeAccessKey($device));
+
+        return is_int($expires) && $expires >= now()->getTimestamp();
+    }
+
+    private function codeAccessKey(Device $device): string
+    {
+        return 'portal.code_access.' . $device->getKey();
     }
 }

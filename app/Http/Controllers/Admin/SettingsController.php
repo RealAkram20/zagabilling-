@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AuditLogger;
 use App\Services\PesapalClient;
 use App\Services\SettingsService;
 use Illuminate\Http\RedirectResponse;
@@ -16,8 +17,10 @@ use Illuminate\View\View;
 
 class SettingsController extends Controller
 {
-    public function __construct(private SettingsService $settings)
-    {
+    public function __construct(
+        private SettingsService $settings,
+        private AuditLogger $audit,
+    ) {
     }
 
     public function index(): View
@@ -43,6 +46,13 @@ class SettingsController extends Controller
 
         $this->settings->setGateway($data);
 
+        // Never log the secret value — only that it changed, and by whom.
+        $this->audit->record('settings.gateway', 'Updated payment gateway settings', null, [
+            'env' => $data['env'],
+            'ipn_url' => $data['ipn_url'] ?? null,
+            'secret_changed' => filled($data['consumer_secret'] ?? null),
+        ]);
+
         return back()->with('status', 'Gateway settings saved.');
     }
 
@@ -51,6 +61,10 @@ class SettingsController extends Controller
         $result = $pesapal->registerIpn();
 
         if (! empty($result['ipn_id'])) {
+            $this->audit->record('settings.ipn_register', 'Registered a PesaPal IPN endpoint', null, [
+                'ipn_id' => $result['ipn_id'],
+            ]);
+
             return back()->with('status', 'IPN registered with PesaPal (' . $result['ipn_id'] . ').');
         }
 
@@ -98,6 +112,11 @@ class SettingsController extends Controller
 
         $this->settings->setBranding($branding);
 
+        $this->audit->record('settings.branding', 'Updated branding settings', null, [
+            'app_name' => $data['app_name'],
+            'assets_changed' => array_values(array_intersect(['logo', 'icon', 'favicon'], array_keys($request->allFiles()))),
+        ]);
+
         return back()->with('status', 'Branding updated.');
     }
 
@@ -114,6 +133,15 @@ class SettingsController extends Controller
         ]);
 
         $this->settings->setMail($data);
+
+        // Rerouting outbound mail is security-sensitive — record host + actor,
+        // never the SMTP password.
+        $this->audit->record('settings.mail', 'Updated outbound email (SMTP) settings', null, [
+            'host' => $data['host'] ?? null,
+            'port' => $data['port'] ?? null,
+            'from_address' => $data['from_address'] ?? null,
+            'password_changed' => filled($data['password'] ?? null),
+        ]);
 
         return back()->with('status', 'Email settings saved.');
     }
@@ -149,7 +177,10 @@ class SettingsController extends Controller
 
     public function updateSecurity(Request $request): RedirectResponse
     {
-        $this->settings->setSecurity($request->only('require_2fa', 'vault_reauth', 'auto_lock'));
+        $security = $request->only('require_2fa', 'vault_reauth', 'auto_lock');
+        $this->settings->setSecurity($security);
+
+        $this->audit->record('settings.security', 'Updated security settings', null, $security);
 
         return back()->with('status', 'Security settings updated.');
     }
@@ -162,11 +193,15 @@ class SettingsController extends Controller
             'role' => ['required', 'in:super_admin,operator,support'],
         ]);
 
-        User::create([
+        $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'role' => $data['role'],
             'password' => Hash::make(Str::random(16)),
+        ]);
+
+        $this->audit->record('user.invite', "Invited {$user->email} as {$user->role}", $user, [
+            'role' => $user->role,
         ]);
 
         return back()->with('status', 'Team member invited.');
@@ -184,7 +219,13 @@ class SettingsController extends Controller
             return back()->withErrors(['role' => 'You cannot change the role of the last super admin.']);
         }
 
+        $roleChanged = $user->role !== $data['role'];
         $user->update($data);
+
+        $this->audit->record('user.update', "Updated user {$user->email}", $user, [
+            'role' => $user->role,
+            'role_changed' => $roleChanged,
+        ]);
 
         return back()->with('status', 'User updated.');
     }
@@ -198,6 +239,11 @@ class SettingsController extends Controller
         if ($user->isSuperAdmin() && $this->lastSuperAdmin()) {
             return back()->withErrors(['user' => 'You cannot delete the last super admin.']);
         }
+
+        $email = $user->email;
+        $this->audit->record('user.delete', "Removed user {$email}", $user, [
+            'role' => $user->role,
+        ]);
 
         $user->delete();
 
