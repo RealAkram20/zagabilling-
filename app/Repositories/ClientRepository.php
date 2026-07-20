@@ -7,8 +7,23 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ClientRepository
 {
-    public function paginateWithFilters(array $filters, int $perPage = 15): LengthAwarePaginator
+    public const PER_PAGE_OPTIONS = [15, 30, 60, 100];
+
+    public const DEFAULT_PER_PAGE = 15;
+
+    public const SORTS = [
+        'recent' => ['Newest first', 'created_at', 'desc'],
+        'name' => ['Name A–Z', 'name', 'asc'],
+        'balance' => ['Highest balance', 'total_balance', 'desc'],
+        'devices' => ['Most devices', 'devices_count', 'desc'],
+    ];
+
+    public function paginateWithFilters(array $filters, ?int $perPage = null): LengthAwarePaginator
     {
+        $perPage = in_array($perPage, self::PER_PAGE_OPTIONS, true) ? $perPage : self::DEFAULT_PER_PAGE;
+
+        [, $column, $direction] = self::SORTS[$filters['sort'] ?? 'recent'] ?? self::SORTS['recent'];
+
         return Client::query()
             ->withCount('devices')
             ->withSum('devices as total_balance', 'balance')
@@ -16,10 +31,13 @@ class ClientRepository
                 $query->where(function ($inner) use ($search) {
                     $inner->where('name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('national_id', 'like', "%{$search}%")
+                        ->orWhere('alt_contact_phone', 'like', "%{$search}%")
+                        ->orWhere('alt_contact_name', 'like', "%{$search}%");
                 });
             })
-            ->latest()
+            ->orderBy($column, $direction)
             ->paginate($perPage)
             ->withQueryString();
     }

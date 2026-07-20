@@ -25,12 +25,16 @@ class ClientController extends Controller
 
     public function index(Request $request, PlanRepository $plans): View
     {
-        $filters = $request->only('search');
+        $filters = $request->only('search', 'sort');
+        $perPage = (int) $request->input('per_page', ClientRepository::DEFAULT_PER_PAGE);
 
         return view('admin.clients.index', [
-            'clients' => $this->clients->paginateWithFilters($filters),
+            'clients' => $this->clients->paginateWithFilters($filters, $perPage),
             'plans' => $plans->active(),
             'filters' => $filters,
+            'perPage' => in_array($perPage, ClientRepository::PER_PAGE_OPTIONS, true)
+                ? $perPage
+                : ClientRepository::DEFAULT_PER_PAGE,
         ]);
     }
 
@@ -57,7 +61,6 @@ class ClientController extends Controller
         $data = $request->validate([
             'device_id' => ['required', Rule::exists('devices', 'id')->whereNull('client_id')],
             'plan_id' => ['required', 'exists:plans,id'],
-            'first_installment_days' => ['nullable', 'integer', 'min:0', 'max:365'],
         ]);
 
         $device = Device::findOrFail($data['device_id']);
@@ -66,7 +69,6 @@ class ClientController extends Controller
         $code = $deviceService->enroll($device, [
             'client_id' => $client->id,
             'plan_id' => $plan->id,
-            'next_due_at' => now()->addDays((int) ($data['first_installment_days'] ?? 30)),
         ]);
 
         return redirect()
@@ -81,11 +83,13 @@ class ClientController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:clients,email'],
             'phone' => ['required', 'string', 'max:40'],
+            'alt_contact_name' => ['nullable', 'string', 'max:255'],
+            'alt_contact_phone' => ['nullable', 'string', 'max:40', 'required_with:alt_contact_name'],
+            'alt_contact_relationship' => ['nullable', 'string', 'max:60'],
             'national_id' => ['required', 'string', 'max:60'],
             'address' => ['required', 'string', 'max:1000'],
             'device_id' => ['nullable', Rule::exists('devices', 'id')->whereNull('client_id')],
             'plan_id' => ['nullable', 'required_with:device_id', 'exists:plans,id'],
-            'first_installment_days' => ['nullable', 'integer', 'min:0', 'max:365'],
             'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
@@ -110,6 +114,9 @@ class ClientController extends Controller
                 'avatar_path' => $avatarPath,
                 'email' => $data['email'],
                 'phone' => $data['phone'],
+                'alt_contact_name' => $data['alt_contact_name'] ?? null,
+                'alt_contact_phone' => $data['alt_contact_phone'] ?? null,
+                'alt_contact_relationship' => $data['alt_contact_relationship'] ?? null,
                 'national_id' => $data['national_id'],
                 'address' => $data['address'],
             ]);
@@ -121,7 +128,6 @@ class ClientController extends Controller
                 $code = $deviceService->enroll($device, [
                     'client_id' => $client->id,
                     'plan_id' => $plan->id,
-                    'next_due_at' => now()->addDays((int) ($data['first_installment_days'] ?? 30)),
                 ]);
 
                 $enrolledDevice = $device;
@@ -145,6 +151,9 @@ class ClientController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', Rule::unique('clients', 'email')->ignore($client->id)],
             'phone' => ['required', 'string', 'max:40'],
+            'alt_contact_name' => ['nullable', 'string', 'max:255'],
+            'alt_contact_phone' => ['nullable', 'string', 'max:40', 'required_with:alt_contact_name'],
+            'alt_contact_relationship' => ['nullable', 'string', 'max:60'],
             'national_id' => ['required', 'string', 'max:60'],
             'address' => ['required', 'string', 'max:1000'],
             'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],

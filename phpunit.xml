@@ -19,6 +19,9 @@
     </coverage>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- Live APP_URL sits under /zagatech (XAMPP subdir); HTTP tests need the
+             request path to start at the route root. -->
+        <env name="APP_URL" value="http://localhost"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_DRIVER" value="array"/>
         <!-- <env name="DB_CONNECTION" value="sqlite"/> -->

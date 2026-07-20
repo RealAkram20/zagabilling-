@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Device;
+use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\UnlockCode;
 use Illuminate\Support\Str;
@@ -34,14 +35,35 @@ class DeviceService
     public function __construct(
         private AuditLogger $auditLogger,
         private UnlockCodeService $unlockCodes,
+        private OfflineEnrollCodec $offlineEnrollCodec,
     ) {
+    }
+
+    public function offlineEnrollCode(Device $device): string
+    {
+        if (! $device->hmac_secret) {
+            $device->update(['hmac_secret' => $this->generateHmacSecret()]);
+        }
+
+        $this->auditLogger->record(
+            'device.offline_enroll_code',
+            "Issued an offline enrollment code for {$device->account_number}",
+            $device,
+        );
+
+        return $this->offlineEnrollCodec->encode(
+            $device->hmac_secret,
+            $device->account_number,
+            (int) ($device->plan?->grace_days ?? 0),
+        );
     }
 
     public function register(array $data): Device
     {
         $device = Device::create([
-            'account_number' => ! empty($data['account_number']) ? $data['account_number'] : $this->generateAccountNumber(),
-            // Left null when unknown; the device reports its firmware serial at enrollment.
+            'account_number' => ! empty($data['account_number'])
+                ? strtoupper(trim($data['account_number']))
+                : $this->generateAccountNumber(),
             'serial' => ! empty($data['serial']) ? $data['serial'] : null,
             'name' => $data['name'] ?? null,
             'model' => $data['model'] ?? null,
@@ -83,7 +105,6 @@ class DeviceService
     public function update(Device $device, array $data): void
     {
         $attributes = [
-            'account_number' => $data['account_number'],
             'serial' => $data['serial'],
             'name' => $data['name'] ?? null,
             'model' => $data['model'] ?? null,
@@ -109,21 +130,32 @@ class DeviceService
     public function enroll(Device $device, array $data): UnlockCode
     {
         $plan = Plan::findOrFail($data['plan_id']);
-        $deposit = round((float) $device->price * (float) $plan->deposit_percentage / 100, 2);
-        $financed = max((float) $device->price - $deposit, 0);
+        $device->setRelation('plan', $plan);
+        $deposit = $device->depositAmount();
+        $financed = $device->financedAmount();
 
         $device->update([
             'client_id' => $data['client_id'],
             'plan_id' => $plan->id,
             'balance' => $financed,
             'status' => Device::STATUS_ACTIVE,
-            'next_due_at' => $data['next_due_at'] ?? now()->addMonth(),
             'activated_at' => $device->activated_at ?? now(),
         ]);
 
         $this->auditLogger->record('device.enroll', "Enrolled {$device->account_number} on a plan", $device);
 
-        return $this->unlockCodes->issue($device, UnlockCode::TYPE_FULL, null, auth()->user());
+        $payment = Payment::create([
+            'device_id' => $device->id,
+            'client_id' => $data['client_id'],
+            'amount' => $deposit,
+            'installments_count' => 1,
+            'status' => Payment::STATUS_PAID,
+            'method' => 'deposit',
+            'method_label' => 'Deposit',
+            'paid_at' => now(),
+        ]);
+
+        return $this->unlockCodes->issue($device, UnlockCode::TYPE_FULL, $payment, auth()->user());
     }
 
     public function unlock(Device $device): void
@@ -153,6 +185,31 @@ class DeviceService
         return [
             'account_number' => $device->account_number,
             'hmac_secret' => $device->hmac_secret,
+            'grace_days' => (int) ($device->plan?->grace_days ?? 0),
+        ];
+    }
+
+    public function exportProvisioningBundle(Device $device): array
+    {
+        if (! $device->hmac_secret) {
+            $device->update(['hmac_secret' => $this->generateHmacSecret()]);
+        }
+
+        $this->auditLogger->record(
+            'device.provisioning_export',
+            "Exported an offline provisioning bundle for {$device->account_number}",
+            $device,
+        );
+
+        return [
+            'format' => 'zaga.provisioning.v1',
+            'account_number' => $device->account_number,
+            'hmac_secret' => $device->hmac_secret,
+            'serial' => $device->serial,
+            'model' => $device->model,
+            'name' => $device->name,
+            'grace_days' => (int) ($device->plan?->grace_days ?? 0),
+            'issued_at' => now()->toIso8601String(),
         ];
     }
 
@@ -171,8 +228,10 @@ class DeviceService
 
     private function generateAccountNumber(): string
     {
+        // Non-enumerable: ~4.3 billion values (16^8) instead of a 5-digit space,
+        // so account numbers can't be brute-forced against the public portal.
         do {
-            $accountNumber = 'ZG-' . random_int(10000, 99999);
+            $accountNumber = 'ZG-' . strtoupper(bin2hex(random_bytes(4)));
         } while (Device::where('account_number', $accountNumber)->exists());
 
         return $accountNumber;

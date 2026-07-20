@@ -3,7 +3,7 @@
 @section('title', 'Dashboard')
 
 @php
-    $money = fn ($n) => $n >= 1000 ? '$' . number_format($n / 1000, 1) . 'k' : '$' . number_format($n, 0);
+    $money = fn ($n) => $n >= 1000 ? currency_prefix() . number_format($n / 1000, 1) . 'k' : currency_prefix() . number_format($n, 0);
 
     $trend = $metrics['revenue_trend'];
     $trendText = $trend === null ? 'vs previous period' : (($trend >= 0 ? '▲ ' : '▼ ') . abs($trend) . '% vs previous');
@@ -123,7 +123,7 @@
                     <div class="grid grid-cols-[1.3fr_1fr_0.9fr_auto] gap-3 px-5 py-3 text-[13px] items-center border-b border-[#F4F5F7] last:border-0">
                         <span class="font-medium truncate">{{ $payment->client->name ?? '—' }}</span>
                         <span class="tnum text-[#787E88]">{{ $payment->device->account_number ?? '—' }}</span>
-                        <span class="tnum text-right font-semibold">${{ number_format((float) $payment->amount, 2) }}</span>
+                        <span class="tnum text-right font-semibold">{{ money($payment->amount) }}</span>
                         <span class="text-right"><x-status-badge :status="$payment->status" /></span>
                     </div>
                 @empty
@@ -136,7 +136,9 @@
     <div class="bg-white border border-[#E9EBEF] rounded-[14px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden">
         <div class="px-5 py-4 border-b border-[#EEF0F3] flex items-center justify-between">
             <div class="text-[14.5px] font-semibold">Unlock codes issued</div>
-            <a href="{{ route('admin.audit.index') }}" class="text-[12px] text-brand font-medium">View all</a>
+            @can('view-audit')
+                <a href="{{ route('admin.audit.index') }}" class="text-[12px] text-brand font-medium">View all</a>
+            @endcan
         </div>
         <div class="p-2">
             @forelse ($recentUnlockCodes as $code)

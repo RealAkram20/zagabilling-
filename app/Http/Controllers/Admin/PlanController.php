@@ -26,7 +26,7 @@ class PlanController extends Controller
     {
         $data = $this->validatePlan($request);
 
-        $this->plans->create($data + ['grace_days' => 3]);
+        $this->plans->create($data);
 
         return back()->with('status', 'Plan created.');
     }
@@ -53,11 +53,20 @@ class PlanController extends Controller
 
     private function validatePlan(Request $request): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'term_months' => ['required', 'integer', 'min:1', 'max:120'],
             'deposit_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
             'cadence' => ['required', 'in:monthly,biweekly,weekly'],
+            'grace_enabled' => ['nullable', 'boolean'],
+            'grace_days' => ['nullable', 'integer', 'min:1', 'max:60', 'required_if:grace_enabled,1'],
         ]);
+
+        // Disabled means zero days — one field drives billing statuses and the
+        // enrollment payloads alike.
+        $data['grace_days'] = $request->boolean('grace_enabled') ? (int) $data['grace_days'] : 0;
+        unset($data['grace_enabled']);
+
+        return $data;
     }
 }

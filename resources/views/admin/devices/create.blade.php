@@ -47,9 +47,9 @@
             </div>
             <div>
                 <label class="block text-[12.5px] font-medium text-[#4A4F58] mb-1.5">Account number</label>
-                <input name="account_number" value="{{ old('account_number') }}" placeholder="Auto-generated if left blank"
-                       class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] tnum outline-none focus:border-brand">
-                <p class="text-[11px] text-[#9AA0AA] mt-1">The number shown on the device lock screen. Leave blank to generate one.</p>
+                <input name="account_number" value="{{ old('account_number') }}" placeholder="ZG-XXXXX-XXXXX"
+                       class="w-full h-10 border border-[#E4E6EB] bg-[#F7F8FA] rounded-lg px-3 text-[13px] tnum uppercase outline-none focus:border-brand">
+                <p class="text-[11px] text-[#9AA0AA] mt-1">Copy this from the Zaga app on the device. Leave blank only if the device is not installed yet. Fixed once saved.</p>
             </div>
         </div>
 

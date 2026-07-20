@@ -24,11 +24,23 @@
                 <x-icon name="check" class="w-4 h-4 text-[#0F7B54]" x-show="copied" x-cloak />
             </button>
         </div>
-        <div class="text-[12px] text-[#9AA0AA] mt-2">Valid until {{ $unlockCode->expires_at->format('M j, g:i A') }}</div>
+        <div class="text-[12px] text-[#9AA0AA] mt-2">Valid until {{ $unlockCode->expires_at->format('M j, g:i A') }} — enter it before then; the paid time is yours either way.</div>
+        @if ($device->next_due_at)
+            <div class="mt-4 flex items-center justify-between px-4 py-3 rounded-[11px] bg-[#E6F4EE] border border-[#CBE7DA]">
+                <span class="text-[12px] text-[#0F7B54]">
+                    @if (($installments = $unlockCode->payment?->installments_count) > 1)
+                        {{ $installments }} installments paid — covered through
+                    @else
+                        Paid through
+                    @endif
+                </span>
+                <span class="text-[13px] font-bold tnum text-[#0F7B54]">{{ $device->next_due_at->format('M j, Y') }}</span>
+            </div>
+        @endif
         <div class="mt-5 rounded-[11px] bg-[#FBFBFC] border border-[#EEF0F3] p-4 text-[12.5px] text-[#565b64] space-y-2">
             <div>① On the locked laptop, click <b>Enter unlock code</b>.</div>
             <div>② Type the code above exactly as shown.</div>
-            <div>③ Your device restarts and unlocks in a few seconds.</div>
+            <div>③ Your device unlocks in a few seconds — no restart needed.</div>
         </div>
     @else
         <p class="text-[13px] text-[#B23A30] text-center">No active unlock code found. Please contact support.</p>

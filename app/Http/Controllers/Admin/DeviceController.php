@@ -9,9 +9,12 @@ use App\Repositories\DeviceRepository;
 use App\Repositories\PlanRepository;
 use App\Services\DeviceService;
 use App\Services\PaymentService;
+use App\Services\SettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -20,6 +23,7 @@ class DeviceController extends Controller
     public function __construct(
         private DeviceRepository $devices,
         private DeviceService $deviceService,
+        private SettingsService $settings,
     ) {
     }
 
@@ -82,7 +86,6 @@ class DeviceController extends Controller
     public function update(Request $request, Device $device): RedirectResponse
     {
         $data = $request->validate([
-            'account_number' => ['required', 'string', 'max:40', Rule::unique('devices', 'account_number')->ignore($device->id)],
             'serial' => ['required', 'string', 'max:120', Rule::unique('devices', 'serial')->ignore($device->id)],
             'name' => ['nullable', 'string', 'max:255'],
             'model' => ['nullable', 'string', 'max:255'],
@@ -106,8 +109,6 @@ class DeviceController extends Controller
     {
         $data = $request->validate([
             'account_number' => ['nullable', 'string', 'max:40', 'unique:devices,account_number'],
-            // Optional: the device reports its real serial from firmware when it
-            // enrolls, so an operator no longer has to read it off a sticker.
             'serial' => ['nullable', 'string', 'max:120', 'unique:devices,serial'],
             'name' => ['nullable', 'string', 'max:255'],
             'model' => ['nullable', 'string', 'max:255'],
@@ -119,9 +120,6 @@ class DeviceController extends Controller
 
         $device = $this->deviceService->register($data);
 
-        // Issue the code straight away: registering a device is always followed by
-        // provisioning the machine, and the code only becomes valid once the device
-        // row exists, so this is the earliest it can honestly be shown.
         $code = $this->deviceService->issueEnrollmentCode($device);
 
         return redirect()
@@ -150,7 +148,6 @@ class DeviceController extends Controller
         $data = $request->validate([
             'client_id' => ['required', 'exists:clients,id'],
             'plan_id' => ['required', 'exists:plans,id'],
-            'next_due_at' => ['nullable', 'date'],
         ]);
 
         $code = $this->deviceService->enroll($device, $data);
@@ -217,18 +214,73 @@ class DeviceController extends Controller
         );
     }
 
-    public function revealVault(Device $device): JsonResponse
+    public function revealVault(Request $request, Device $device): JsonResponse
     {
+        if ($denied = $this->guardReauth($request)) {
+            return $denied;
+        }
+
         return response()->json($this->deviceService->revealVault($device));
     }
 
-    public function revealProvisioning(Device $device): JsonResponse
+    public function revealProvisioning(Request $request, Device $device): JsonResponse
     {
+        if ($denied = $this->guardReauth($request)) {
+            return $denied;
+        }
+
         return response()->json($this->deviceService->revealProvisioning($device));
     }
 
-    // Issues the one-time code a device redeems to provision itself over the API.
-    // Mirrors the device:enroll-code command so onboarding never needs a terminal.
+    /**
+     * When the "re-auth before revealing secrets" setting is on, require the
+     * signed-in admin to re-enter their password. This must be enforced here on
+     * the server — a client-side modal alone is bypassed by calling the endpoint
+     * directly.
+     */
+    private function guardReauth(Request $request): ?JsonResponse
+    {
+        if (! $this->settings->security()['vault_reauth']) {
+            return null;
+        }
+
+        $password = (string) $request->input('password', '');
+
+        if ($password === '') {
+            return response()->json([
+                'message' => 'Re-enter your password to reveal this.',
+                'reauth_required' => true,
+            ], 422);
+        }
+
+        if (! Hash::check($password, $request->user()->password)) {
+            return response()->json([
+                'message' => 'That password was incorrect.',
+                'reauth_required' => true,
+            ], 422);
+        }
+
+        return null;
+    }
+
+    public function offlineEnrollCode(Device $device): JsonResponse
+    {
+        return response()->json([
+            'code' => $this->deviceService->offlineEnrollCode($device),
+            'account_number' => $device->account_number,
+        ]);
+    }
+
+    public function exportProvisioning(Device $device): Response
+    {
+        $bundle = $this->deviceService->exportProvisioningBundle($device);
+
+        return response(json_encode($bundle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES))
+            ->header('Content-Type', 'application/json')
+            ->header('Content-Disposition',
+                'attachment; filename="zaga-' . $device->account_number . '.json"');
+    }
+
     public function issueEnrollCode(Device $device): JsonResponse
     {
         $code = $this->deviceService->issueEnrollmentCode($device);
@@ -256,5 +308,35 @@ class DeviceController extends Controller
         $this->deviceService->delete($device);
 
         return redirect()->route('admin.devices.index')->with('status', 'Device deleted.');
+    }
+
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer', 'exists:devices,id'],
+        ]);
+
+        $devices = Device::whereIn('id', $data['ids'])->get();
+
+        [$financed, $removable] = $devices->partition(fn (Device $device) => $device->isEnrolled());
+
+        foreach ($removable as $device) {
+            $this->deviceService->delete($device);
+        }
+
+        $message = $removable->isEmpty()
+            ? 'No devices were deleted.'
+            : "{$removable->count()} device(s) deleted.";
+
+        if ($financed->isNotEmpty()) {
+            $accounts = $financed->pluck('account_number')->join(', ');
+
+            return redirect()->route('admin.devices.index')
+                ->with('status', $message)
+                ->withErrors(['devices' => "Skipped {$financed->count()} device(s) assigned to a client: {$accounts}. Unassign them first — deleting them would destroy their payment history."]);
+        }
+
+        return redirect()->route('admin.devices.index')->with('status', $message);
     }
 }

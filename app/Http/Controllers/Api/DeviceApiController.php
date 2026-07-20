@@ -11,6 +11,9 @@ use Illuminate\Http\Request;
 
 class DeviceApiController extends Controller
 {
+    private const ABILITY_HEARTBEAT = 'device:heartbeat';
+    private const ABILITY_TOKEN = 'device:token';
+
     public function __construct(private AuditLogger $auditLogger)
     {
     }
@@ -20,7 +23,6 @@ class DeviceApiController extends Controller
         $data = $request->validate([
             'code' => 'required|string',
             'agent_version' => 'nullable|string',
-            // Reported by the client from its own firmware (SMBIOS).
             'serial' => 'nullable|string|max:120',
             'model' => 'nullable|string|max:255',
             'manufacturer' => 'nullable|string|max:255',
@@ -35,10 +37,31 @@ class DeviceApiController extends Controller
             return response()->json(['message' => 'Invalid or expired enrollment code.'], 422);
         }
 
-        // The machine knows what it is better than whoever typed the record, so its
-        // firmware wins. Refuse only when the serial already belongs to a different
-        // device, which would otherwise break the unique index.
+        if (! $device->isEnrolled()) {
+            return response()->json([
+                'message' => "Device {$device->account_number} is not on a payment plan yet. "
+                    . 'Assign a client and plan on the portal, then enroll.',
+            ], 422);
+        }
+
         $reported = $this->reportedHardware($data);
+
+        // Bind enrollment to the hardware it was issued for: if the device was
+        // registered with a known serial, the machine redeeming the code must
+        // present that same serial. Stops a leaked code being used to enroll a
+        // different machine (silent account takeover of the real device).
+        if (filled($device->serial) && isset($reported['serial'])
+            && strcasecmp(trim($device->serial), $reported['serial']) !== 0) {
+            $this->auditLogger->record(
+                'device.enroll_serial_mismatch',
+                "Rejected enrollment for {$device->account_number}: reported serial does not match the registered serial.",
+                $device,
+            );
+
+            return response()->json([
+                'message' => 'This enrollment code is registered to a different device. Contact support.',
+            ], 422);
+        }
 
         if (isset($reported['serial'])) {
             $clash = Device::where('serial', $reported['serial'])
@@ -59,7 +82,14 @@ class DeviceApiController extends Controller
             'agent_version' => $data['agent_version'] ?? $device->agent_version,
         ])->save();
 
-        $token = $device->createToken('device:' . $device->account_number)->plainTextToken;
+        $device->tokens()->delete();
+
+        // Scope the token to exactly what the offline agent needs — checking in
+        // and pulling its own unlock code — so a leaked token can do nothing more.
+        $token = $device->createToken(
+            'device:' . $device->account_number,
+            [self::ABILITY_HEARTBEAT, self::ABILITY_TOKEN],
+        )->plainTextToken;
 
         $this->auditLogger->record(
             'device.enroll_api',
@@ -76,13 +106,11 @@ class DeviceApiController extends Controller
             'serial' => $device->serial,
             'model' => $device->model,
             'manufacturer' => $device->manufacturer,
-            // The friendly label an operator gave the unit, falling back to the
-            // machine's own hostname so the lock screen always has something to show.
+            'grace_days' => (int) ($device->plan?->grace_days ?? 0),
             'name' => $device->name ?: $device->hostname,
         ]);
     }
 
-    // Firmware fields the client reported, keeping only the ones it actually knows.
     private function reportedHardware(array $data): array
     {
         $reported = [];
@@ -101,6 +129,10 @@ class DeviceApiController extends Controller
     {
         $device = $request->user();
 
+        if (! $device->tokenCan(self::ABILITY_HEARTBEAT)) {
+            return response()->json(['message' => 'This token is not permitted to check in.'], 403);
+        }
+
         $data = $request->validate([
             'status' => 'nullable|string',
             'lock_deadline' => 'nullable|integer',
@@ -115,6 +147,9 @@ class DeviceApiController extends Controller
         return response()->json([
             'account_number' => $device->account_number,
             'status' => $device->status,
+            // Repeated on every check-in so a later plan change still reaches
+            // devices that enrolled long ago.
+            'grace_days' => (int) ($device->plan?->grace_days ?? 0),
             'server_time' => now()->toIso8601String(),
         ]);
     }
@@ -122,6 +157,10 @@ class DeviceApiController extends Controller
     public function token(Request $request): JsonResponse
     {
         $device = $request->user();
+
+        if (! $device->tokenCan(self::ABILITY_TOKEN)) {
+            return response()->json(['message' => 'This token is not permitted to fetch unlock codes.'], 403);
+        }
 
         $unlockCode = UnlockCode::where('device_id', $device->id)
             ->orderByDesc('id')

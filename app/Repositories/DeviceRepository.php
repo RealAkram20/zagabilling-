@@ -3,10 +3,14 @@
 namespace App\Repositories;
 
 use App\Models\Device;
+use App\Services\OfflineEnrollCodec;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class DeviceRepository
 {
+    private const NORMALIZED_ACCOUNT_SQL =
+        "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER(account_number), '-', ''), ' ', ''), 'O', '0'), 'I', '1'), 'L', '1'), 'U', 'V')";
+
     public function paginateWithFilters(array $filters, int $perPage = 15): LengthAwarePaginator
     {
         return Device::query()
@@ -33,8 +37,23 @@ class DeviceRepository
 
     public function findByAccountNumber(string $accountNumber): ?Device
     {
+        $normalized = OfflineEnrollCodec::normalizeAccount($accountNumber);
+
+        if ($normalized === '') {
+            return null;
+        }
+
+        $candidates = [$normalized];
+        if (! str_starts_with($normalized, 'ZG')) {
+            $candidates[] = 'ZG' . $normalized;
+        }
+
         return Device::with(['client', 'plan'])
-            ->where('account_number', $accountNumber)
+            ->where(function ($query) use ($candidates) {
+                foreach ($candidates as $candidate) {
+                    $query->orWhereRaw(self::NORMALIZED_ACCOUNT_SQL . ' = ?', [$candidate]);
+                }
+            })
             ->first();
     }
 

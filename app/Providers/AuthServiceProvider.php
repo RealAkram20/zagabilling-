@@ -19,6 +19,7 @@ class AuthServiceProvider extends ServiceProvider
         'manage-clients' => [User::ROLE_SUPER_ADMIN, User::ROLE_OPERATOR],
         'reveal-vault' => [User::ROLE_SUPER_ADMIN, User::ROLE_OPERATOR],
         'reveal-provisioning' => [User::ROLE_SUPER_ADMIN],
+        'view-audit' => [User::ROLE_SUPER_ADMIN, User::ROLE_OPERATOR],
         'issue-codes' => [User::ROLE_SUPER_ADMIN, User::ROLE_OPERATOR, User::ROLE_SUPPORT],
     ];
 

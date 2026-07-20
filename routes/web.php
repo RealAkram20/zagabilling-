@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AccountController;
+use App\Http\Controllers\Admin\ArrearsController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -13,14 +14,12 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Client\UnlockController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => redirect()->route('admin.dashboard'));
-
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
-    Route::post('/login', [LoginController::class, 'login']);
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
     Route::get('/two-factor', [LoginController::class, 'showTwoFactor'])->name('two-factor.show');
-    Route::post('/two-factor', [LoginController::class, 'verifyTwoFactor'])->name('two-factor.verify');
-    Route::post('/two-factor/resend', [LoginController::class, 'resendTwoFactor'])->name('two-factor.resend');
+    Route::post('/two-factor', [LoginController::class, 'verifyTwoFactor'])->middleware('throttle:6,1')->name('two-factor.verify');
+    Route::post('/two-factor/resend', [LoginController::class, 'resendTwoFactor'])->middleware('throttle:3,10')->name('two-factor.resend');
 });
 
 Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
@@ -34,6 +33,7 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::get('/devices/bulk', [DeviceController::class, 'bulkCreate'])->middleware('can:manage-devices')->name('devices.bulk');
     Route::post('/devices/bulk', [DeviceController::class, 'bulkStore'])->middleware('can:manage-devices')->name('devices.bulk.store');
     Route::post('/devices', [DeviceController::class, 'store'])->middleware('can:manage-devices')->name('devices.store');
+    Route::delete('/devices/bulk', [DeviceController::class, 'bulkDestroy'])->middleware('can:manage-devices')->name('devices.bulkDestroy');
     Route::get('/devices/{device}', [DeviceController::class, 'show'])->name('devices.show');
     Route::get('/devices/{device}/edit', [DeviceController::class, 'edit'])->middleware('can:manage-devices')->name('devices.edit');
     Route::patch('/devices/{device}', [DeviceController::class, 'update'])->middleware('can:manage-devices')->name('devices.update');
@@ -45,6 +45,8 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::post('/devices/{device}/enroll-code', [DeviceController::class, 'issueEnrollCode'])->middleware('can:manage-devices')->name('devices.enrollCode');
     Route::post('/devices/{device}/vault', [DeviceController::class, 'revealVault'])->middleware('can:reveal-vault')->name('devices.vault');
     Route::post('/devices/{device}/provisioning', [DeviceController::class, 'revealProvisioning'])->middleware('can:reveal-provisioning')->name('devices.provisioning');
+    Route::get('/devices/{device}/provisioning/export', [DeviceController::class, 'exportProvisioning'])->middleware('can:reveal-provisioning')->name('devices.provisioning.export');
+    Route::post('/devices/{device}/offline-enroll-code', [DeviceController::class, 'offlineEnrollCode'])->middleware('can:reveal-provisioning')->name('devices.offlineEnrollCode');
     Route::post('/devices/{device}/uninstall-auth', [DeviceController::class, 'uninstallAuthorization'])->middleware('can:manage-devices')->name('devices.uninstallAuth');
 
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
@@ -63,7 +65,9 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
 
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
 
-    Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');
+    Route::get('/arrears', [ArrearsController::class, 'index'])->name('arrears');
+
+    Route::get('/audit', [AuditLogController::class, 'index'])->middleware('can:view-audit')->name('audit.index');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.readAll');
@@ -94,13 +98,24 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     });
 });
 
-Route::prefix('unlock')->name('portal.')->group(function () {
+Route::prefix('unlock')->group(function () {
+    Route::get('/callback', [UnlockController::class, 'callback']);
+    Route::match(['get', 'post'], '/ipn', [UnlockController::class, 'ipn']);
+    Route::redirect('/', '/', 301);
+    Route::get('/{device}/{action}', fn (string $device, string $action) => redirect("/{$device}/{$action}", 301))
+        ->whereIn('action', ['summary', 'payment', 'code']);
+});
+
+Route::name('portal.')->group(function () {
     Route::get('/', [UnlockController::class, 'lookup'])->name('lookup');
-    Route::post('/', [UnlockController::class, 'find'])->name('find');
+    Route::post('/find', [UnlockController::class, 'find'])->middleware('throttle:15,1')->name('find');
     Route::get('/callback', [UnlockController::class, 'callback'])->name('callback');
     Route::match(['get', 'post'], '/ipn', [UnlockController::class, 'ipn'])->name('ipn');
-    Route::get('/{device}/summary', [UnlockController::class, 'summary'])->name('summary');
-    Route::get('/{device}/payment', [UnlockController::class, 'payment'])->name('payment');
-    Route::post('/{device}/pay', [UnlockController::class, 'pay'])->name('pay');
-    Route::get('/{device}/code', [UnlockController::class, 'code'])->name('code');
+
+    Route::middleware('throttle:20,1')->group(function () {
+        Route::get('/{device}/summary', [UnlockController::class, 'summary'])->name('summary');
+        Route::get('/{device}/payment', [UnlockController::class, 'payment'])->name('payment');
+        Route::post('/{device}/pay', [UnlockController::class, 'pay'])->middleware('throttle:8,1')->name('pay');
+        Route::get('/{device}/code', [UnlockController::class, 'code'])->name('code');
+    });
 });

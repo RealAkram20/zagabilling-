@@ -7,17 +7,21 @@
     $remaining = max((int) $device->progress()['remaining'], 1);
     $label = $device->plan->periodLabel();
     $cadenceDays = $device->plan->cadenceDays();
+    $dueBase = $device->next_due_at && $device->next_due_at->isFuture()
+        ? $device->next_due_at
+        : now();
 @endphp
 
 @section('content')
 @include('client._dots', ['active' => 3])
 
 <div class="bg-white border border-[#E9EBEF] rounded-[16px] shadow-[0_1px_2px_rgba(16,20,28,.03)] overflow-hidden"
-     x-data="{ periods: 1, per: {{ $per }}, max: {{ $remaining }},
-         get amount() { return Math.round(this.per * this.periods * 100) / 100; } }">
+     x-data="{ periods: 1, per: {{ $per }}, max: {{ $remaining }}, dueBase: {{ $dueBase->timestamp * 1000 }}, cad: {{ $cadenceDays }},
+         get amount() { return Math.round(this.per * this.periods * 100) / 100; },
+         get paidThrough() { return new Date(this.dueBase + this.periods * this.cad * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); } }">
     <div class="flex items-center justify-between px-5 py-4 bg-[#FBFAFF] border-b border-[#EEF0F3]">
         <span class="text-[13px] text-[#787E88]">Paying installment {{ $device->progress()['current'] }}</span>
-        <span class="tnum text-[19px] font-bold" x-text="'$' + amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})"></span>
+        <span class="tnum text-[19px] font-bold" x-text="zagaMoney(amount)"></span>
     </div>
     <form method="POST" action="{{ route('portal.pay', $device) }}" class="p-6 space-y-5">
         @csrf
@@ -31,15 +35,15 @@
                     <button type="button" @click="periods = Math.min(max, periods + 1)" class="w-12 h-full text-[20px] text-[#787E88] hover:bg-[#EFF1F4]">+</button>
                 </div>
                 <div class="flex-1 text-right">
-                    <div class="tnum text-[22px] font-bold" x-text="'$' + amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})"></div>
-                    <div class="text-[11px] text-[#9AA0AA]"><span x-text="periods"></span> × ${{ number_format($per, 2) }} / {{ $label }}</div>
+                    <div class="tnum text-[22px] font-bold" x-text="zagaMoney(amount)"></div>
+                    <div class="text-[11px] text-[#9AA0AA]"><span x-text="periods"></span> × {{ money($per) }} / {{ $label }}</div>
                 </div>
             </div>
-            <p class="text-[11.5px] text-[#9AA0AA] mt-2">Keeps your device unlocked for <span x-text="periods * {{ $cadenceDays }}"></span> more days.</p>
+            <p class="text-[11.5px] text-[#9AA0AA] mt-2">Keeps your device unlocked through <span class="font-semibold text-[#565b64]" x-text="paidThrough"></span> (<span x-text="periods * {{ $cadenceDays }}"></span> days added to your current due date).</p>
         </div>
 
         <button class="w-full h-12 rounded-[11px] bg-brand text-white text-[13px] font-semibold shadow-[0_2px_8px_rgba(75,69,199,.32)] flex items-center justify-center gap-2">
-            <x-icon name="lock" class="w-4 h-4" sw="2" /> Pay <span x-text="'$' + amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})"></span>
+            <x-icon name="lock" class="w-4 h-4" sw="2" /> Pay <span x-text="zagaMoney(amount)"></span>
         </button>
         <p class="text-center text-[11.5px] text-[#9AA0AA]">You'll be taken to PesaPal to complete payment securely. In sandbox mode payment is simulated and cleared instantly.</p>
     </form>

@@ -10,7 +10,7 @@ use App\Repositories\UnlockCodeRepository;
 
 class UnlockCodeService
 {
-    private const FULL_VALIDITY_HOURS = 24;
+    private const FULL_VALIDITY_HOURS = 120;
     private const GRACE_VALIDITY_HOURS = 72;
     private const MAX_DURATION_DAYS = 4095;
 
@@ -34,6 +34,11 @@ class UnlockCodeService
 
         $cadenceDays = $device->plan?->cadenceDays() ?? 30;
         $durationDays = min(max($installments, 1) * $cadenceDays, self::MAX_DURATION_DAYS);
+
+        $base = $device->next_due_at && $device->next_due_at->isFuture()
+            ? $device->next_due_at->copy()
+            : now();
+        $device->update(['next_due_at' => $base->copy()->addDays($durationDays)]);
 
         $device->increment('unlock_counter');
         $counter = (int) $device->unlock_counter;

@@ -11,13 +11,14 @@
 
 <div class="max-w-3xl space-y-4">
     <div class="bg-white border border-[#E9EBEF] rounded-[14px] p-5 shadow-[0_1px_2px_rgba(16,20,28,.03)]"
-         x-data="{ color: '{{ old('primary_color', $branding['primary_color']) }}', logoPreview: @js($branding['logo_path'] ? asset($branding['logo_path']) : null), faviconPreview: @js($branding['favicon_path'] ? asset($branding['favicon_path']) : null) }">
+         x-data="{ color: '{{ old('primary_color', $branding['primary_color']) }}', logoPreview: @js($branding['logo_path'] ? asset($branding['logo_path']) : null), iconPreview: @js(! empty($branding['icon_path']) ? asset($branding['icon_path']) : null), faviconPreview: @js($branding['favicon_path'] ? asset($branding['favicon_path']) : null) }">
         <div class="text-[14.5px] font-semibold mb-1">Branding</div>
         <div class="text-[12px] text-[#8A909A] mb-4">App name, primary colour, logo, and favicon. Applies across the admin, portal, and login screens.</div>
 
         @error('app_name') <div class="mb-3 px-3 py-2 rounded-lg bg-[#FBEAE8] border border-[#F1C9C4] text-[12.5px] text-[#B23A30]">{{ $message }}</div> @enderror
         @error('primary_color') <div class="mb-3 px-3 py-2 rounded-lg bg-[#FBEAE8] border border-[#F1C9C4] text-[12.5px] text-[#B23A30]">{{ $message }}</div> @enderror
         @error('logo') <div class="mb-3 px-3 py-2 rounded-lg bg-[#FBEAE8] border border-[#F1C9C4] text-[12.5px] text-[#B23A30]">{{ $message }}</div> @enderror
+        @error('icon') <div class="mb-3 px-3 py-2 rounded-lg bg-[#FBEAE8] border border-[#F1C9C4] text-[12.5px] text-[#B23A30]">{{ $message }}</div> @enderror
         @error('favicon') <div class="mb-3 px-3 py-2 rounded-lg bg-[#FBEAE8] border border-[#F1C9C4] text-[12.5px] text-[#B23A30]">{{ $message }}</div> @enderror
 
         <form method="POST" action="{{ route('admin.settings.branding') }}" enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -37,12 +38,22 @@
                 </div>
             </div>
             <div>
-                <label class="block text-[11.5px] font-medium text-[#565b64] mb-1.5">Logo <span class="text-[#9AA0AA] font-normal">(PNG/SVG, ≤5MB)</span></label>
+                <label class="block text-[11.5px] font-medium text-[#565b64] mb-1.5">Logo <span class="text-[#9AA0AA] font-normal">(wide, shown when expanded)</span></label>
                 <div class="flex items-center gap-3">
-                    <template x-if="logoPreview"><img :src="logoPreview" class="w-10 h-10 rounded-lg object-contain border border-[#EEF0F3] flex-none" alt=""></template>
+                    <template x-if="logoPreview"><img :src="logoPreview" class="h-10 max-w-[120px] rounded-lg object-contain border border-[#EEF0F3] flex-none" alt=""></template>
                     <label class="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-[#E4E6EB] bg-white text-[12px] font-medium text-[#4A4F58] cursor-pointer">
                         <x-icon name="camera" class="w-4 h-4" sw="1.8" /> Choose file
                         <input type="file" name="logo" accept="image/*" class="hidden" @change="const f=$event.target.files[0]; if(f) logoPreview=URL.createObjectURL(f)">
+                    </label>
+                </div>
+            </div>
+            <div>
+                <label class="block text-[11.5px] font-medium text-[#565b64] mb-1.5">Icon <span class="text-[#9AA0AA] font-normal">(square, shown when collapsed)</span></label>
+                <div class="flex items-center gap-3">
+                    <template x-if="iconPreview"><img :src="iconPreview" class="w-10 h-10 rounded-lg object-contain border border-[#EEF0F3] flex-none" alt=""></template>
+                    <label class="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-[#E4E6EB] bg-white text-[12px] font-medium text-[#4A4F58] cursor-pointer">
+                        <x-icon name="camera" class="w-4 h-4" sw="1.8" /> Choose file
+                        <input type="file" name="icon" accept="image/*" class="hidden" @change="const f=$event.target.files[0]; if(f) iconPreview=URL.createObjectURL(f)">
                     </label>
                 </div>
             </div>
@@ -221,7 +232,7 @@
                         <span class="text-[11px] font-semibold px-2.5 py-1 rounded-md {{ $user->isSuperAdmin() ? 'text-brand bg-brand-50' : 'text-[#6B7280] bg-[#EFF1F4]' }}">{{ $user->roleLabel() }}</span>
                         <button @click="editing=true" title="Edit" class="w-8 h-8 rounded-lg border border-[#E4E6EB] flex items-center justify-center text-[#787E88] hover:bg-[#FBFBFC]"><x-icon name="pencil" class="w-3.5 h-3.5" /></button>
                         @if ($user->id !== auth()->id())
-                            <form method="POST" action="{{ route('admin.settings.users.destroy', $user) }}" onsubmit="return confirm('Remove {{ $user->name }}?');">
+                            <form method="POST" action="{{ route('admin.settings.users.destroy', $user) }}" data-confirm="Remove {{ $user->name }}?">
                                 @csrf
                                 @method('DELETE')
                                 <button title="Delete" class="w-8 h-8 rounded-lg border border-[#E7C9C4] flex items-center justify-center text-[#B23A30] hover:bg-[#FDF6F5]"><x-icon name="trash" class="w-3.5 h-3.5" /></button>
