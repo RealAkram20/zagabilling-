@@ -9,6 +9,11 @@ The application-code fixes are already merged on the
 
 Legend: 🔴 do before the app is reachable from the internet · 🟠 soon after · 🟢 hardening.
 
+> **Preflight gate:** after applying these, run `./scripts/go-live.sh --check-only`
+> on the production box. It fails if any 🔴 security setting is still unsafe and
+> lists what's left. Run it without `--check-only` to also build production
+> caches and migrate. It never sets or prints secrets.
+
 ---
 
 ## 🔴 1. Turn off debug output
